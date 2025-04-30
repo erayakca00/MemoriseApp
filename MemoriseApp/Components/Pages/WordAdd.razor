@@ -1,0 +1,116 @@
+﻿@page "/words/add"
+@rendermode InteractiveServer 
+@using MemoriseApp.Data @*// ApplicationDbContext için *@
+@using MemoriseApp.Models @*// Word, WordSample için (eğer Models klasöründeyse)  *@
+@using Microsoft.EntityFrameworkCore
+@inject ApplicationDbContext DbContext
+@inject NavigationManager NavigationManager
+
+<h3>Yeni Kelime Ekle</h3>
+
+<EditForm Model="@newWord" OnInvalidSubmit="@HandleValidSubmit" FormName="AddWordForm">
+    <DataAnnotationsValidator />
+    <ValidationSummary />   
+
+    <div class="mb-3">
+        <label for="engWord" class="form-label">İngilizce Kelime:</label>
+        <InputText id="engWord" class="form-control" @bind-Value="newWord.EngWordName" />
+        <ValidationMessage For="@(() => newWord.EngWordName)" />
+    </div>
+
+    <div class="mb-3">
+        <label for="turWord" class="form-label">Türkçe Karşılığı:</label>
+        <InputText id="turWord" class="form-control" @bind-Value="newWord.TurWordName" />
+        <ValidationMessage For="@(() => newWord.TurWordName)" />
+    </div>
+
+    <div class="mb-3">
+        <label for="sampleSentence" class="form-label">Örnek Cümle:</label>
+        <InputText id="sampleSentence" class="form-control" @bind-Value="sampleSentence" />
+    </div>
+
+    <button type="submit" class="btn btn-primary">Kaydet</button>
+    @if (!string.IsNullOrEmpty(successMessage))
+    {
+        <div class="alert alert-success mt-3">@successMessage</div>
+    }
+    @if (!string.IsNullOrEmpty(errorMessage))
+    {
+        <div class="alert alert-danger mt-3">@errorMessage</div>
+    }
+</EditForm>
+
+<button class="btn btn-secondary" @onclick="TestButtonClickHandler">Test Et</button>
+
+
+
+@code {
+
+    private void TestButtonClickHandler()
+    {
+        Console.WriteLine(">>> Test Butonuna Tıklandı! <<<");
+        errorMessage = "Test butonu çalıştı!"; // UI'da görmek için
+        StateHasChanged();
+    }
+
+    // Form ile bağlanacak yeni word nesnesi
+    private Word newWord = new Word();
+
+    //Örnek cümleyi geçici olarak tutacak değişken
+    private string sampleSentence = string.Empty;
+
+    // Başarılı veya hatalı mesajları için
+    private string? successMessage;
+    private string? errorMessage;
+
+    private async Task HandleValidSubmit()
+    {
+
+
+        // --- DEBUG LOGGING BAŞLANGIÇ ---
+        Console.WriteLine("--- HandleValidSubmit Başladı ---");
+        Console.WriteLine($"Formdan Gelen EngWordName: '{newWord.EngWordName}'");
+        Console.WriteLine($"Formdan Gelen TurWordName: '{newWord.TurWordName}'");
+        Console.WriteLine($"Formdan Gelen SampleSentence: '{sampleSentence}'");
+        Console.WriteLine("---------------------------------");
+        // --- DEBUG LOGGING BİTİŞ ---
+        successMessage = null;
+        errorMessage = null;
+
+        try
+        {
+            WordSample? wordSampleToAdd = null;
+            if (!string.IsNullOrWhiteSpace(sampleSentence))
+            {
+                wordSampleToAdd = new WordSample
+                    {
+                        SampleSentence = sampleSentence,
+                        Word = newWord
+                    };
+            }
+
+            // Yeni kelimeyi veritabanına ekle
+            DbContext.Words.Add(newWord);
+            await DbContext.SaveChangesAsync();
+
+            successMessage = $"'{newWord.EngWordName}' kelimesi başarıyla eklendi!";
+
+            newWord = new Word(); // Formu sıfırla
+            sampleSentence = string.Empty; // Örnek cümleyi sıfırla
+
+            StateHasChanged(); // UI'yi güncelle
+        }
+
+        catch (DbUpdateException dbEx)
+        {
+            errorMessage = $"Veritabanı hatası: {dbEx.InnerException?.Message ?? dbEx.Message}";
+            Console.WriteLine($"Hata Detayı: {dbEx.ToString()}");
+            StateHasChanged();  
+        }
+
+        catch (Exception ex)
+        {
+            errorMessage = $"Kelime eklenirken bir hata oluştu: {ex.Message}"; 
+        }
+    }
+}
