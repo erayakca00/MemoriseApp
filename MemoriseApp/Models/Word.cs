@@ -10,13 +10,13 @@ namespace MemoriseApp.Models
         [Key] //Primary key
         public int WordID { get; set; }
 
-        [Required]
+        [Required(AllowEmptyStrings = false, ErrorMessage ="İngilizce kelime alanı zorunludur!")]
         [MaxLength(100)]
-        public string EngWordName { get; set; } = string.Empty; 
+        public string EngWordName { get; set; }
 
-        [Required]
+        [Required(AllowEmptyStrings = false, ErrorMessage = "Türkçe kelime alanı zorunludur!")]
         [MaxLength(150)]
-        public string TurWordName { get; set; } = string.Empty;
+        public string TurWordName { get; set; }
 
         [MaxLength(500)]
         public string? PicturePath { get; set; } // Resim yolu (nullable)

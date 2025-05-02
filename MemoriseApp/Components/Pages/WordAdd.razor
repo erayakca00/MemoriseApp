@@ -8,9 +8,9 @@
 
 <h3>Yeni Kelime Ekle</h3>
 
-<EditForm Model="@newWord" OnInvalidSubmit="@HandleValidSubmit" FormName="AddWordForm">
+<EditForm Model="@newWord" OnValidSubmit="@HandleValidSubmit" FormName="AddWordForm">
     <DataAnnotationsValidator />
-    <ValidationSummary />   
+    <ValidationSummary />
 
     <div class="mb-3">
         <label for="engWord" class="form-label">İngilizce Kelime:</label>
@@ -40,18 +40,12 @@
     }
 </EditForm>
 
-<button class="btn btn-secondary" @onclick="TestButtonClickHandler">Test Et</button>
+
+
 
 
 
 @code {
-
-    private void TestButtonClickHandler()
-    {
-        Console.WriteLine(">>> Test Butonuna Tıklandı! <<<");
-        errorMessage = "Test butonu çalıştı!"; // UI'da görmek için
-        StateHasChanged();
-    }
 
     // Form ile bağlanacak yeni word nesnesi
     private Word newWord = new Word();
@@ -67,15 +61,40 @@
     {
 
 
-        // --- DEBUG LOGGING BAŞLANGIÇ ---
-        Console.WriteLine("--- HandleValidSubmit Başladı ---");
+        // --- DEBUG LOGGING BAŞLANGIÇ (burası kaldırılacak)---
+        Console.WriteLine("--- HandleValidSubmit Başladı (Dolu Veri Testi) ---");
         Console.WriteLine($"Formdan Gelen EngWordName: '{newWord.EngWordName}'");
         Console.WriteLine($"Formdan Gelen TurWordName: '{newWord.TurWordName}'");
         Console.WriteLine($"Formdan Gelen SampleSentence: '{sampleSentence}'");
-        Console.WriteLine("---------------------------------");
+        Console.WriteLine("--------------------------------------------------");
         // --- DEBUG LOGGING BİTİŞ ---
         successMessage = null;
         errorMessage = null;
+
+        // Girilen İngilizce veya Türkçe kelimenin veritabanında (büyük/küçük harf duyarsız) olup olmadığını kontrol et
+        string lowerEngWord = newWord.EngWordName.ToLower();
+        string lowerTurWord = newWord.TurWordName.ToLower(); // Türkçe kelimeyi de küçük harfe çevir
+
+        // Hem İngilizce hem de Türkçe kelime için kontrol yap
+        bool duplicateExists = await DbContext.Words
+                                              .AnyAsync(w => w.EngWordName.ToLower() == lowerEngWord || // İngilizce eşleşiyor VEYA
+                                                             w.TurWordName.ToLower() == lowerTurWord);   // Türkçe eşleşiyor
+
+        if (duplicateExists)
+        {
+            
+            // Hangi kelimenin çakıştığını bulmak için ek sorgu yapılabilir (daha karmaşık)
+            var existing = await DbContext.Words.FirstOrDefaultAsync(w => w.EngWordName.ToLower() == lowerEngWord || w.TurWordName.ToLower() == lowerTurWord);
+            if (existing != null) {
+                if (existing.EngWordName.Equals(newWord.EngWordName, StringComparison.OrdinalIgnoreCase))
+                    errorMessage = $"İngilizce kelime '{newWord.EngWordName}' zaten mevcut.";
+                else
+                    errorMessage = $"Türkçe kelime '{newWord.TurWordName}' zaten mevcut (İngilizce karşılığı: '{existing.EngWordName}').";
+            }
+
+            StateHasChanged(); // Hata mesajını göster
+            return; // Metoddan çık, kaydetme işlemi yapma
+        }
 
         try
         {

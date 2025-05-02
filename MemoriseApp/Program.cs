@@ -16,7 +16,10 @@ var connectionString =
 builder.Services.AddDatabaseDeveloperPageExceptionFilter();
 
 builder.Services.AddRazorComponents()
-    .AddInteractiveServerComponents();
+    .AddInteractiveServerComponents(options =>
+    {
+        options.DetailedErrors = true; // Hata ayýklama için detaylý hata mesajlarý gösterir.
+    });
 builder.Services.AddRazorPages();
 builder.Services.AddServerSideBlazor();
 
