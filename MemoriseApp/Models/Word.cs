@@ -12,11 +12,11 @@ namespace MemoriseApp.Models
 
         [Required(AllowEmptyStrings = false, ErrorMessage ="İngilizce kelime alanı zorunludur!")]
         [MaxLength(100)]
-        public string EngWordName { get; set; }
+        public string EngWordName { get; set; } = string.Empty; 
 
         [Required(AllowEmptyStrings = false, ErrorMessage = "Türkçe kelime alanı zorunludur!")]
         [MaxLength(150)]
-        public string TurWordName { get; set; }
+        public string TurWordName { get; set; } = string.Empty;
 
         [MaxLength(500)]
         public string? PicturePath { get; set; } // Resim yolu (nullable)

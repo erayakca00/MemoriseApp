@@ -1,0 +1,325 @@
+﻿@page "/words/edit/{WordId:int}" 
+@rendermode InteractiveServer
+@using MemoriseApp.Data
+@using MemoriseApp.Models
+@using Microsoft.EntityFrameworkCore
+@using System.IO
+@using Microsoft.AspNetCore.Hosting
+@inject ApplicationDbContext DbContext
+@inject NavigationManager NavigationManager
+@inject IWebHostEnvironment Environment
+
+<PageTitle>Kelime Düzenle</PageTitle>
+
+<div class="container mt-4">
+    <h2 class="mb-4">Kelime Düzenle</h2>
+
+    @if (isLoading)
+    {
+        <p><em>Yükleniyor...</em></p>
+    }
+    else if (wordToEdit == null)
+    {
+        <div class="alert alert-warning">Düzenlenecek kelime bulunamadı. <a href="/words/list">Listeye Geri Dön</a></div>
+    }
+    else
+    {
+        <div class="card">
+            <div class="card-body">
+                <EditForm Model="@wordToEdit" OnValidSubmit="@HandleUpdateSubmit" FormName="EditWordForm">
+                    <DataAnnotationsValidator />
+
+                    <div class="mb-3">
+                        <label for="englishWord" class="form-label">İngilizce Kelime</label>
+                        <InputText @bind-Value="wordToEdit.EngWordName" class="form-control" id="englishWord" />
+                        <ValidationMessage For="@(() => wordToEdit.EngWordName)" />
+                    </div>
+
+                    <div class="mb-3">
+                        <label for="turkishWord" class="form-label">Türkçe Karşılığı</label>
+                        <InputText @bind-Value="wordToEdit.TurWordName" class="form-control" id="turkishWord" />
+                        <ValidationMessage For="@(() => wordToEdit.TurWordName)" />
+                    </div>
+
+                    <div class="mb-3">
+                        <label for="exampleSentence" class="form-label">Örnek Cümle</label>
+                        @* Örnek cümle için ayrı bir model/ilişki gerekebilir. Şimdilik ilk örneği düzenleyelim *@
+                        <InputTextArea @bind-Value="sampleSentence" class="form-control" id="exampleSentence" rows="3" />
+                        @* <ValidationMessage For="@(() => sampleSentence)" /> *@ @* Gerekirse validasyon eklenebilir *@
+                    </div>
+
+                    <div class="mb-3">
+                        <label class="form-label">Mevcut Resim</label>
+                        <div class="text-center mb-2">
+                            @if (!string.IsNullOrEmpty(currentImageUrl))
+                            {
+                                <img src="@currentImageUrl" class="img-fluid" style="max-height: 200px;" alt="Mevcut Resim" id="currentImage">
+                            }
+                            else
+                            {
+                                <span class="text-muted">Mevcut resim yok.</span>
+                            }
+                        </div>
+                        <div class="mb-3">
+                            <label for="imageUpload" class="form-label">Yeni Resim Seç (Değiştirmek için)</label>
+                            <InputFile OnChange="@LoadImage" class="form-control" id="imageUpload" accept=".jpg,.jpeg,.png,.gif" />
+                        </div>
+                        @* Yeni Seçilen Resmi Önizleme Alanı *@
+                        @if (!string.IsNullOrEmpty(newImageDataUrl))
+                        {
+                            <div class="mb-3">
+                                <label>Yeni Resim Önizlemesi:</label>
+                                <div>
+                                    <img src="@newImageDataUrl" style="max-width: 200px; max-height: 200px;" alt="Yeni Resim Önizleme" />
+                                </div>
+                            </div>
+                        }
+                    </div>
+
+                    @* Hata/Başarı Mesajları *@
+                    @if (!string.IsNullOrEmpty(errorMessage))
+                    {
+                        <div class="alert alert-danger mt-3" role="alert">@errorMessage</div>
+                    }
+                    @if (!string.IsNullOrEmpty(successMessage))
+                    {
+                        <div class="alert alert-success mt-3" role="alert">@successMessage</div>
+                    }
+
+                    <div class="d-flex justify-content-between mt-4">
+                        <a href="/words/list" class="btn btn-secondary">İptal</a>
+                        <button type="submit" class="btn btn-primary" disabled="@isLoading">Kaydet</button>
+                    </div>
+                </EditForm>
+            </div>
+        </div>
+    }
+</div>
+
+
+@code {
+    [Parameter]
+    public int WordId { get; set; } // Route parametresini int olarak al
+
+    private Word? wordToEdit; // Düzenlenecek kelime nesnesi
+    private string sampleSentence = string.Empty; // Örnek cümle (şimdilik ilkini alacağız)
+    private string? currentImageUrl; // Mevcut resmin URL'si
+    private string? errorMessage;
+    private string? successMessage;
+    private bool isLoading = true; // Yükleme durumu
+
+    // --- Resim Yükleme için ---
+    private IBrowserFile? selectedImageFile;
+    private string? newImageDataUrl; // Yeni resim önizlemesi
+    private readonly long maxFileSize = 1024 * 1024 * 5; // 5 MB
+    private readonly string[] allowedExtensions = { ".jpg", ".jpeg", ".png", ".gif" };
+    // --- ---
+
+    protected override async Task OnParametersSetAsync()
+    {
+        isLoading = true; // Yüklemeye başla
+        errorMessage = null;
+        successMessage = null;
+        wordToEdit = null; // Önce temizle
+
+        try
+        {
+            // Veritabanından kelimeyi ve ilişkili ilk örnek cümleyi çek
+            // Include WordSamples eğer örnek cümleyi de düzenlemek istersen.
+            // Şimdilik sadece Word'ü çekelim, örnek cümleyi ayrı yönetelim (basitlik için)
+            wordToEdit = await DbContext.Words.FindAsync(WordId);
+
+            if (wordToEdit != null)
+            {
+                // İlk örnek cümleyi bul (varsa)
+                var firstSample = await DbContext.WordSamples
+                                                 .FirstOrDefaultAsync(s => s.WordID == WordId);
+                sampleSentence = firstSample?.SampleSentence ?? string.Empty;
+
+                // Mevcut resim yolunu ayarla
+                currentImageUrl = wordToEdit.PicturePath;
+            }
+            else
+            {
+                errorMessage = "Kelime bulunamadı.";
+            }
+        }
+        catch (Exception ex)
+        {
+            errorMessage = "Kelime bilgileri yüklenirken bir hata oluştu.";
+            Console.WriteLine($"Kelime yükleme hatası (ID: {WordId}): {ex.ToString()}");
+        }
+        finally
+        {
+            isLoading = false; // Yükleme bitti
+        }
+    }
+
+    private async Task LoadImage(InputFileChangeEventArgs e)
+    {
+        // WordAdd.razor'daki LoadImage metoduyla aynı mantık
+        selectedImageFile = null;
+        newImageDataUrl = null;
+        errorMessage = null; // Hata mesajını temizle
+
+        if (e.FileCount == 0) return;
+
+        try
+        {
+            selectedImageFile = e.File;
+
+            if (selectedImageFile.Size > maxFileSize)
+            {
+                errorMessage = $"Dosya boyutu çok büyük. Maksimum boyut: {maxFileSize / (1024 * 1024)} MB.";
+                selectedImageFile = null; StateHasChanged(); return;
+            }
+            var fileExtension = Path.GetExtension(selectedImageFile.Name).ToLowerInvariant();
+            if (!allowedExtensions.Contains(fileExtension))
+            {
+                errorMessage = $"Geçersiz dosya türü. İzin verilenler: {string.Join(", ", allowedExtensions)}";
+                selectedImageFile = null; StateHasChanged(); return;
+            }
+
+            var buffer = new byte[selectedImageFile.Size];
+            int bytesRead = await selectedImageFile.OpenReadStream(maxFileSize).ReadAsync(buffer);
+            newImageDataUrl = $"data:{selectedImageFile.ContentType};base64,{Convert.ToBase64String(buffer)}";
+            StateHasChanged();
+        }
+        catch (Exception ex)
+        {
+            errorMessage = $"Yeni resim seçilirken bir hata oluştu: {ex.Message}";
+            Console.WriteLine($"Yeni resim seçme hatası: {ex.ToString()}");
+            selectedImageFile = null; newImageDataUrl = null; StateHasChanged();
+        }
+    }
+
+    private async Task HandleUpdateSubmit()
+    {
+        if (wordToEdit == null) return; // Kelime yüklenmediyse bir şey yapma
+
+        isLoading = true;
+        successMessage = null;
+        errorMessage = null;
+
+        // --- Mükerrer Kontrolü (Düzenleme için güncellendi) ---
+        // Kendisi hariç başka bir kelimeyle çakışıyor mu diye kontrol et
+        string lowerEngWord = wordToEdit.EngWordName.ToLower();
+        string lowerTurWord = wordToEdit.TurWordName.ToLower();
+        bool duplicateExists = await DbContext.Words
+                                              .AnyAsync(w => w.WordID != wordToEdit.WordID && // Kendisi hariç
+                                                             (w.EngWordName.ToLower() == lowerEngWord ||
+                                                              w.TurWordName.ToLower() == lowerTurWord));
+        if (duplicateExists)
+        {
+            errorMessage = "Girdiğiniz İngilizce veya Türkçe kelimelerden biri başka bir kayıtta zaten mevcut.";
+            isLoading = false; StateHasChanged(); return;
+        }
+        // --- ---
+
+
+        // --- Resim Kaydetme/Silme Mantığı ---
+        string? oldImagePath = wordToEdit.PicturePath; // Eski yolu sakla
+        string? newUploadedPath = null;
+
+        if (selectedImageFile != null) // Yeni resim seçildiyse
+        {
+            try
+            {
+                var uploadsFolder = Path.Combine(Environment.WebRootPath, "uploads", "images");
+                if (!Directory.Exists(uploadsFolder)) Directory.CreateDirectory(uploadsFolder);
+
+                var uniqueFileName = Guid.NewGuid().ToString() + Path.GetExtension(selectedImageFile.Name);
+                var filePath = Path.Combine(uploadsFolder, uniqueFileName);
+
+                await using (var fs = new FileStream(filePath, FileMode.Create))
+                {
+                    await selectedImageFile.OpenReadStream(maxFileSize).CopyToAsync(fs);
+                }
+                newUploadedPath = $"/uploads/images/{uniqueFileName}"; // Yeni yolu ata
+                wordToEdit.PicturePath = newUploadedPath; // Modeldeki yolu güncelle
+                Console.WriteLine($"Yeni resim kaydedildi: {filePath}");
+            }
+            catch (Exception ex)
+            {
+                errorMessage = $"Yeni resim kaydedilirken bir hata oluştu: {ex.Message}";
+                Console.WriteLine($"Yeni resim kaydetme hatası: {ex.ToString()}");
+                isLoading = false; StateHasChanged(); return;
+            }
+        }
+        // --- ---
+
+        try
+        {
+            // Örnek Cümleyi Güncelle (Basit Yaklaşım: Varsa ilkini silip yenisini ekle)
+            var existingSample = await DbContext.WordSamples.FirstOrDefaultAsync(s => s.WordID == wordToEdit.WordID);
+            if (existingSample != null)
+            {
+                if (string.IsNullOrWhiteSpace(sampleSentence)) // Cümle silindiyse
+                {
+                    DbContext.WordSamples.Remove(existingSample);
+                }
+                else if (existingSample.SampleSentence != sampleSentence) // Cümle değiştiyse
+                {
+                    existingSample.SampleSentence = sampleSentence;
+                    DbContext.WordSamples.Update(existingSample);
+                }
+                // Değişmediyse bir şey yapma
+            }
+            else if (!string.IsNullOrWhiteSpace(sampleSentence)) // Önce yoktu ama şimdi eklendiyse
+            {
+                DbContext.WordSamples.Add(new WordSample { WordID = wordToEdit.WordID, SampleSentence = sampleSentence });
+            }
+
+
+            // Kelime nesnesini güncelle olarak işaretle
+            DbContext.Words.Update(wordToEdit);
+
+            // Değişiklikleri kaydet
+            await DbContext.SaveChangesAsync();
+
+            // --- Eski Resmi Sil (Yeni resim başarıyla kaydedildiyse ve eski resim varsa) ---
+            if (newUploadedPath != null && !string.IsNullOrEmpty(oldImagePath))
+            {
+                try
+                {
+                    var oldFilePath = Path.Combine(Environment.WebRootPath, oldImagePath.TrimStart('/')); // Fiziksel yolu bul
+                    if (File.Exists(oldFilePath))
+                    {
+                        File.Delete(oldFilePath);
+                        Console.WriteLine($"Eski resim silindi: {oldFilePath}");
+                    }
+                }
+                catch (Exception ex)
+                {
+                    Console.WriteLine($"Eski resim silinirken hata oluştu ({oldImagePath}): {ex.ToString()}");
+                    // Bu hatayı kullanıcıya göstermeyebiliriz, sadece loglamak yeterli olabilir.
+                }
+            }
+            // --- ---
+
+            successMessage = "Kelime başarıyla güncellendi.";
+            currentImageUrl = wordToEdit.PicturePath; // Mevcut resmi güncelle
+            selectedImageFile = null; // Seçimi temizle
+            newImageDataUrl = null; // Önizlemeyi temizle
+            isLoading = false;
+            StateHasChanged();
+
+            // Listeye geri yönlendir
+            await Task.Delay(1500); // Mesajı görmek için kısa bir bekleme
+            NavigationManager.NavigateTo("/words/list");
+
+        }
+        catch (DbUpdateException dbEx)
+        {
+            errorMessage = $"Veritabanı güncelleme hatası: {dbEx.InnerException?.Message ?? dbEx.Message}";
+            Console.WriteLine($"Veritabanı güncelleme hatası: {dbEx.ToString()}");
+            isLoading = false; StateHasChanged();
+        }
+        catch (Exception ex)
+        {
+            errorMessage = $"Kelime güncellenirken bir hata oluştu: {ex.Message}";
+            Console.WriteLine($"Kelime güncelleme hatası: {ex.ToString()}");
+            isLoading = false; StateHasChanged();
+        }
+    }
+}

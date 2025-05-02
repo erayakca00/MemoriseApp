@@ -49,3 +49,60 @@ h1:focus {
 .darker-border-checkbox.form-check-input {
     border-color: #929292;
 }
+
+.full-page-background {
+    background-color: white;
+    background-size: cover;
+    background-position: center;
+    background-attachment: fixed;
+}
+
+:root {
+    /* Açýk Tema (Varsayýlan) */
+    --bg-color: #ffffff;
+    --text-color: #212529;
+    --card-bg: #f8f9fa;
+    --input-bg: #ffffff;
+    --input-border: #ced4da;
+    --primary-color: #0d6efd; /* Bootstrap Mavi */
+    /* ... diðer renkler ... */
+}
+
+[data-theme='dark'] {
+    /* Koyu Tema */
+    --bg-color: #212529; /* Koyu Gri/Siyah */
+    --text-color: #dee2e6; /* Açýk Gri */
+    --card-bg: #343a40; /* Daha Koyu Gri */
+    --input-bg: #495057; /* Gri */
+    --input-border: #6c757d; /* Daha Açýk Gri */
+    --primary-color: #0d6efd; /* Mavi kalabilir veya ayarlanabilir */
+    /* ... diðer renkler ... */
+}
+
+body {
+    background-color: var(--bg-color);
+    color: var(--text-color);
+    /* Geçiþ efekti (isteðe baðlý) */
+    transition: background-color 0.3s ease, color 0.3s ease;
+}
+
+/* Diðer elemanlarý deðiþkenleri kullanacak þekilde güncelle */
+.card {
+    background-color: var(--card-bg);
+}
+
+.form-control {
+    background-color: var(--input-bg);
+    color: var(--text-color);
+    border: 1px solid var(--input-border);
+}
+
+.form-label {
+    color: var(--text-color);
+}
+
+.btn-primary {
+    background-color: var(--primary-color);
+    border-color: var(--primary-color);
+}
+

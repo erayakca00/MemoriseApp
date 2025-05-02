@@ -113,7 +113,7 @@
 
             // Önizleme için resmi base64'e çevir
             var buffer = new byte[selectedImageFile.Size];
-            await selectedImageFile.OpenReadStream(maxFileSize).ReadAsync(buffer);
+            int bytesRead = await selectedImageFile.OpenReadStream(maxFileSize).ReadAsync(buffer);
             imageDataUrl = $"data:{selectedImageFile.ContentType};base64,{Convert.ToBase64String(buffer)}";
 
             StateHasChanged(); // Önizlemeyi göstermek için UI'ı güncelle
@@ -196,21 +196,14 @@
                 newWord.PicturePath = uploadedImagePath;
             }
 
-            // WordSample oluşturma (önceki adımdan)
+            // WordSample oluşturma
             WordSample? wordSampleToAdd = null;
             if (!string.IsNullOrWhiteSpace(sampleSentence))
             {
-                wordSampleToAdd = new WordSample
-                    {
-                        SampleSentence = sampleSentence,
-                        Word = newWord
-                    };
+                wordSampleToAdd = new WordSample { SampleSentence = sampleSentence, Word = newWord };
+                DbContext.WordSamples.Add(wordSampleToAdd); // <<< AÇIKÇA EKLE
             }
-
-            // Kelimeyi (ve ilişkili WordSample'ı) DbContext'e ekle
             DbContext.Words.Add(newWord);
-
-            // Değişiklikleri kaydet
             await DbContext.SaveChangesAsync();
 
             successMessage = $"'{newWord.EngWordName}' kelimesi başarıyla eklendi!";
