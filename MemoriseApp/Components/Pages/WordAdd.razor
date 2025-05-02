@@ -1,16 +1,19 @@
 ﻿@page "/words/add"
-@rendermode InteractiveServer 
-@using MemoriseApp.Data @*// ApplicationDbContext için *@
-@using MemoriseApp.Models @*// Word, WordSample için (eğer Models klasöründeyse)  *@
+@rendermode InteractiveServer
+@using MemoriseApp.Data
+@using MemoriseApp.Models
 @using Microsoft.EntityFrameworkCore
+@using System.IO 
+@using Microsoft.AspNetCore.Hosting 
 @inject ApplicationDbContext DbContext
 @inject NavigationManager NavigationManager
+@inject IWebHostEnvironment Environment
 
 <h3>Yeni Kelime Ekle</h3>
 
 <EditForm Model="@newWord" OnValidSubmit="@HandleValidSubmit" FormName="AddWordForm">
     <DataAnnotationsValidator />
-    <ValidationSummary />
+    @* <ValidationSummary /> *@ @* İsterseniz aktif edebilirsiniz *@
 
     <div class="mb-3">
         <label for="engWord" class="form-label">İngilizce Kelime:</label>
@@ -26,78 +29,174 @@
 
     <div class="mb-3">
         <label for="sampleSentence" class="form-label">Örnek Cümle:</label>
-        <InputText id="sampleSentence" class="form-control" @bind-Value="sampleSentence" />
+        <InputTextArea id="sampleSentence" class="form-control" @bind-Value="sampleSentence" />
     </div>
 
+    <div class="mb-3">
+        <label for="imageFile" class="form-label">Resim Seç (İsteğe Bağlı):</label>
+        <InputFile id="imageFile" class="form-control" OnChange="@LoadImage" accept=".jpg,.jpeg,.png,.gif" />
+    </div>
+
+    @* Seçilen Resmi Önizleme Alanı *@
+    @if (!string.IsNullOrEmpty(imageDataUrl))
+    {
+        <div class="mb-3">
+            <label>Seçilen Resim Önizlemesi:</label>
+            <div>
+                <img src="@imageDataUrl" style="max-width: 200px; max-height: 200px;" alt="Resim Önizleme" />
+            </div>
+        </div>
+    }
+
     <button type="submit" class="btn btn-primary">Kaydet</button>
-    @if (!string.IsNullOrEmpty(successMessage))
-    {
-        <div class="alert alert-success mt-3">@successMessage</div>
-    }
-    @if (!string.IsNullOrEmpty(errorMessage))
-    {
-        <div class="alert alert-danger mt-3">@errorMessage</div>
-    }
+
 </EditForm>
 
-
-
-
+@if (!string.IsNullOrEmpty(errorMessage))
+{
+    <div class="alert alert-danger mt-3" role="alert">
+        @errorMessage
+    </div>
+}
+@if (!string.IsNullOrEmpty(successMessage))
+{
+    <div class="alert alert-success mt-3" role="alert">
+        @successMessage
+    </div>
+}
 
 
 @code {
-
-    // Form ile bağlanacak yeni word nesnesi
     private Word newWord = new Word();
-
-    //Örnek cümleyi geçici olarak tutacak değişken
     private string sampleSentence = string.Empty;
-
-    // Başarılı veya hatalı mesajları için
     private string? successMessage;
     private string? errorMessage;
 
-    private async Task HandleValidSubmit()
+    // --- Resim Yükleme için Eklenenler ---
+    private IBrowserFile? selectedImageFile; // Seçilen dosyayı tutar
+    private string? imageDataUrl; // Resim önizlemesi için base64 data URL
+    private readonly long maxFileSize = 1024 * 1024 * 5; // Örnek: Maksimum 5 MB dosya boyutu
+    private readonly string[] allowedExtensions = { ".jpg", ".jpeg", ".png", ".gif" }; // İzin verilen uzantılar
+    // --- ---
+
+    private async Task LoadImage(InputFileChangeEventArgs e)
     {
+        selectedImageFile = null; // Önce temizle
+        imageDataUrl = null;
+        errorMessage = null; // Hata mesajını temizle
 
-
-        // --- DEBUG LOGGING BAŞLANGIÇ (burası kaldırılacak)---
-        Console.WriteLine("--- HandleValidSubmit Başladı (Dolu Veri Testi) ---");
-        Console.WriteLine($"Formdan Gelen EngWordName: '{newWord.EngWordName}'");
-        Console.WriteLine($"Formdan Gelen TurWordName: '{newWord.TurWordName}'");
-        Console.WriteLine($"Formdan Gelen SampleSentence: '{sampleSentence}'");
-        Console.WriteLine("--------------------------------------------------");
-        // --- DEBUG LOGGING BİTİŞ ---
-        successMessage = null;
-        errorMessage = null;
-
-        // Girilen İngilizce veya Türkçe kelimenin veritabanında (büyük/küçük harf duyarsız) olup olmadığını kontrol et
-        string lowerEngWord = newWord.EngWordName.ToLower();
-        string lowerTurWord = newWord.TurWordName.ToLower(); // Türkçe kelimeyi de küçük harfe çevir
-
-        // Hem İngilizce hem de Türkçe kelime için kontrol yap
-        bool duplicateExists = await DbContext.Words
-                                              .AnyAsync(w => w.EngWordName.ToLower() == lowerEngWord || // İngilizce eşleşiyor VEYA
-                                                             w.TurWordName.ToLower() == lowerTurWord);   // Türkçe eşleşiyor
-
-        if (duplicateExists)
-        {
-            
-            // Hangi kelimenin çakıştığını bulmak için ek sorgu yapılabilir (daha karmaşık)
-            var existing = await DbContext.Words.FirstOrDefaultAsync(w => w.EngWordName.ToLower() == lowerEngWord || w.TurWordName.ToLower() == lowerTurWord);
-            if (existing != null) {
-                if (existing.EngWordName.Equals(newWord.EngWordName, StringComparison.OrdinalIgnoreCase))
-                    errorMessage = $"İngilizce kelime '{newWord.EngWordName}' zaten mevcut.";
-                else
-                    errorMessage = $"Türkçe kelime '{newWord.TurWordName}' zaten mevcut (İngilizce karşılığı: '{existing.EngWordName}').";
-            }
-
-            StateHasChanged(); // Hata mesajını göster
-            return; // Metoddan çık, kaydetme işlemi yapma
-        }
+        if (e.FileCount == 0) return; // Dosya seçilmediyse çık
 
         try
         {
+            selectedImageFile = e.File;
+
+            // Dosya boyutu kontrolü
+            if (selectedImageFile.Size > maxFileSize)
+            {
+                errorMessage = $"Dosya boyutu çok büyük. Maksimum boyut: {maxFileSize / (1024 * 1024)} MB.";
+                selectedImageFile = null; // Seçimi iptal et
+                StateHasChanged();
+                return;
+            }
+
+            // Dosya uzantısı kontrolü
+            var fileExtension = Path.GetExtension(selectedImageFile.Name).ToLowerInvariant();
+            if (!allowedExtensions.Contains(fileExtension))
+            {
+                errorMessage = $"Geçersiz dosya türü. İzin verilenler: {string.Join(", ", allowedExtensions)}";
+                selectedImageFile = null; // Seçimi iptal et
+                StateHasChanged();
+                return;
+            }
+
+
+            // Önizleme için resmi base64'e çevir
+            var buffer = new byte[selectedImageFile.Size];
+            await selectedImageFile.OpenReadStream(maxFileSize).ReadAsync(buffer);
+            imageDataUrl = $"data:{selectedImageFile.ContentType};base64,{Convert.ToBase64String(buffer)}";
+
+            StateHasChanged(); // Önizlemeyi göstermek için UI'ı güncelle
+        }
+        catch (Exception ex)
+        {
+            errorMessage = $"Resim yüklenirken bir hata oluştu: {ex.Message}";
+            Console.WriteLine($"Resim yükleme hatası: {ex.ToString()}");
+            selectedImageFile = null;
+            imageDataUrl = null;
+            StateHasChanged();
+        }
+    }
+
+
+    private async Task HandleValidSubmit()
+    {
+        // Loglamayı şimdilik kaldırabiliriz veya bırakabiliriz
+        // Console.WriteLine("--- HandleValidSubmit Başladı ---"); ...
+
+        successMessage = null;
+        errorMessage = null;
+
+        // Mükerrer kontrolü (önceki adımdan)
+        string lowerEngWord = newWord.EngWordName.ToLower();
+        string lowerTurWord = newWord.TurWordName.ToLower();
+        bool duplicateExists = await DbContext.Words
+                                              .AnyAsync(w => w.EngWordName.ToLower() == lowerEngWord || w.TurWordName.ToLower() == lowerTurWord);
+        if (duplicateExists)
+        {
+            errorMessage = $"Girdiğiniz İngilizce ('{newWord.EngWordName}') veya Türkçe ('{newWord.TurWordName}') kelimelerden biri zaten mevcut.";
+            StateHasChanged();
+            return;
+        }
+
+        // --- Resim Kaydetme Mantığı ---
+        string? uploadedImagePath = null; // Kaydedilen resmin yolunu tutacak
+        if (selectedImageFile != null)
+        {
+            try
+            {
+                // Kaydedilecek klasörü belirle (wwwroot altında)
+                var uploadsFolder = Path.Combine(Environment.WebRootPath, "uploads", "images");
+                // Klasör yoksa oluştur
+                if (!Directory.Exists(uploadsFolder))
+                {
+                    Directory.CreateDirectory(uploadsFolder);
+                }
+
+                // Benzersiz dosya adı oluştur (GUID + uzantı)
+                var uniqueFileName = Guid.NewGuid().ToString() + Path.GetExtension(selectedImageFile.Name);
+                var filePath = Path.Combine(uploadsFolder, uniqueFileName);
+
+                // Dosyayı sunucuya kaydet
+                await using (var fs = new FileStream(filePath, FileMode.Create))
+                {
+                    await selectedImageFile.OpenReadStream(maxFileSize).CopyToAsync(fs);
+                }
+
+                // Veritabanına kaydedilecek web erişilebilir yolu oluştur (/ ile başlar)
+                uploadedImagePath = $"/uploads/images/{uniqueFileName}";
+                Console.WriteLine($"Resim kaydedildi: {filePath}"); // Loglama
+                Console.WriteLine($"DB'ye yazılacak yol: {uploadedImagePath}"); // Loglama
+            }
+            catch (Exception ex)
+            {
+                errorMessage = $"Resim kaydedilirken bir hata oluştu: {ex.Message}";
+                Console.WriteLine($"Resim kaydetme hatası: {ex.ToString()}");
+                StateHasChanged();
+                return; // Resim kaydedilemediyse kelimeyi de kaydetme
+            }
+        }
+        // --- ---
+
+        try
+        {
+            // Resim yolu varsa Word nesnesine ata
+            if (uploadedImagePath != null)
+            {
+                newWord.PicturePath = uploadedImagePath;
+            }
+
+            // WordSample oluşturma (önceki adımdan)
             WordSample? wordSampleToAdd = null;
             if (!string.IsNullOrWhiteSpace(sampleSentence))
             {
@@ -108,28 +207,33 @@
                     };
             }
 
-            // Yeni kelimeyi veritabanına ekle
+            // Kelimeyi (ve ilişkili WordSample'ı) DbContext'e ekle
             DbContext.Words.Add(newWord);
+
+            // Değişiklikleri kaydet
             await DbContext.SaveChangesAsync();
 
             successMessage = $"'{newWord.EngWordName}' kelimesi başarıyla eklendi!";
 
-            newWord = new Word(); // Formu sıfırla
-            sampleSentence = string.Empty; // Örnek cümleyi sıfırla
+            // Formu temizle
+            newWord = new Word();
+            sampleSentence = string.Empty;
+            selectedImageFile = null; // Seçili dosyayı temizle
+            imageDataUrl = null; // Önizlemeyi temizle
 
-            StateHasChanged(); // UI'yi güncelle
+            StateHasChanged();
         }
-
         catch (DbUpdateException dbEx)
         {
             errorMessage = $"Veritabanı hatası: {dbEx.InnerException?.Message ?? dbEx.Message}";
             Console.WriteLine($"Hata Detayı: {dbEx.ToString()}");
-            StateHasChanged();  
+            StateHasChanged();
         }
-
         catch (Exception ex)
         {
-            errorMessage = $"Kelime eklenirken bir hata oluştu: {ex.Message}"; 
+            errorMessage = $"Kelime eklenirken bir hata oluştu: {ex.Message}";
+            Console.WriteLine($"Hata Detayı: {ex.ToString()}");
+            StateHasChanged();
         }
     }
 }
