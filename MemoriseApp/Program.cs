@@ -4,6 +4,7 @@ using Microsoft.AspNetCore.Identity;
 using Microsoft.AspNetCore.Identity.UI;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.AspNetCore.Diagnostics.EntityFrameworkCore;
+using MemoriseApp.Services;
 
 var builder = WebApplication.CreateBuilder(args);
 
@@ -41,6 +42,8 @@ builder.Services.Configure<Microsoft.AspNetCore.HttpsPolicy.HttpsRedirectionOpti
     options.HttpsPort = 7105;
 });
 
+builder.Services.AddScoped<SrsService>(); // SRS servisini ekle
+
 var app = builder.Build();
 
 app.UseHttpsRedirection();
@@ -65,4 +68,4 @@ app.MapRazorPages();
 app.MapRazorComponents<App>()
     .AddInteractiveServerRenderMode();
 
-app.Run();
+await app.RunAsync();

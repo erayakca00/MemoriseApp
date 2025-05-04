@@ -1,0 +1,298 @@
+﻿@page "/quiz" 
+@*@attribute [Authorize] // Bu sayfaya sadece giriş yapmış kullanıcılar erişebilir *@
+@rendermode InteractiveServer // Etkileşimli olmalı
+@using MemoriseApp.Data
+@using MemoriseApp.Models
+@using MemoriseApp.Services 
+@using Microsoft.EntityFrameworkCore 
+@using Microsoft.AspNetCore.Components.Authorization 
+@inject SrsService SrsService 
+@inject AuthenticationStateProvider AuthenticationStateProvider 
+@inject NavigationManager NavigationManager 
+
+<PageTitle>Kelime Sınavı</PageTitle>
+
+<h3>Kelime Sınavı</h3>
+
+@* Hata Mesajı Alanı *@
+@if (!string.IsNullOrEmpty(errorMessage))
+{
+    <div class="alert alert-danger" role="alert">@errorMessage</div>
+}
+
+@* Yükleniyor Durumu *@
+@if (isLoading)
+{
+    <p><em>Sınav yükleniyor...</em></p>
+}
+@* Sınav Bitti Durumu *@
+else if (isQuizComplete)
+{
+    <div class="alert alert-success">
+        <h4>Tebrikler!</h4>
+        <p>Bu oturumdaki tüm kelimeleri tamamladınız.</p>
+        <button class="btn btn-primary" @onclick="StartNewQuiz">Yeni Sınava Başla</button>
+        <a href="/words/list" class="btn btn-secondary ms-2">Kelime Listesine Dön</a>
+    </div>
+}
+@* Sınav Devam Ediyor Durumu *@
+else if (currentWord != null)
+{
+    <div class="card shadow-sm">
+        <div class="card-header">
+            Kelime @(currentWordIndex + 1) / @quizWords.Count
+        </div>
+        <div class="card-body">
+            @* Kelime Gösterme Alanı (Örn: İngilizce) *@
+            <h4 class="card-title mb-3">@currentWord.EngWordName</h4>
+
+            @* Cevap Giriş Alanı (Örn: Türkçe) *@
+            <div class="mb-3">
+                <label for="answerInput" class="form-label">Türkçe Karşılığı:</label>
+                <InputText @bind-Value="userAnswer" class="form-control" id="answerInput" @oninput="ClearFeedback" disabled="@showFeedback" placeholder="Cevabınızı buraya yazın..." @ref="answerInputRef" />
+            </div>
+
+            @* Butonlar *@
+            @if (!showFeedback)
+            {
+                <button class="btn btn-primary" @onclick="CheckAnswer" disabled="@string.IsNullOrWhiteSpace(userAnswer)">Kontrol Et</button>
+            }
+
+            @* Geri Bildirim Alanı *@
+            @if (showFeedback)
+            {
+                @if (isAnswerCorrect)
+                {
+                    <div class="alert alert-success mt-3">Doğru!</div>
+                }
+                else
+                {
+                    <div class="alert alert-danger mt-3">
+                        Yanlış! Doğru cevap: <strong>@currentWord.TurWordName</strong>
+                    </div>
+                }
+                <button class="btn btn-secondary mt-2" @onclick="LoadNextWord">Sonraki Kelime</button>
+            }
+        </div>
+    </div>
+}
+else // Başlangıçta veya kelime yüklenemediğinde (hata yoksa)
+{
+    <p><em>Sınav için kelime bulunamadı veya bir sorun oluştu.</em></p>
+    <button class="btn btn-primary" @onclick="StartNewQuiz">Tekrar Dene</button>
+}
+
+
+@code {
+    // Durum Değişkenleri
+    private bool isLoading = true;
+    private bool isQuizComplete = false;
+    private string? errorMessage;
+    private List<Word> quizWords = new List<Word>(); // Oturumdaki kelimeler
+    private Word? currentWord; // Şu an gösterilen kelime
+    private int currentWordIndex = -1; // Mevcut kelimenin indeksi
+    private string? userId; // Giriş yapmış kullanıcının ID'si
+
+    // Cevaplama ile İlgili Değişkenler
+    private string userAnswer = string.Empty; // Kullanıcının girdiği cevap
+    private bool showFeedback = false; // Doğru/Yanlış geri bildirimini göster
+    private bool isAnswerCorrect = false; // Cevabın doğruluğu
+
+    // Input alanına odaklanmak için referans
+    private InputText? answerInputRef;
+
+    // Yaşam Döngüsü Metotları
+    protected override async Task OnInitializedAsync()
+    {
+        await LoadQuizData();
+    }
+
+    protected override async Task OnAfterRenderAsync(bool firstRender)
+    {
+        // İlk renderdan sonra ve input görünür olduğunda odaklan
+        if (!isLoading && !isQuizComplete && currentWord != null && answerInputRef?.Element != null)
+        {
+            try
+            {
+                await answerInputRef.Element.Value.FocusAsync();
+            }
+            catch (Exception ex) { Console.WriteLine($"Focus error: {ex.Message}"); } // Olası JS Interop hatalarını yakala
+        }
+    }
+
+
+    // Yardımcı Metotlar
+    private async Task LoadQuizData()
+    {
+        isLoading = true;
+        isQuizComplete = false;
+        errorMessage = null;
+        quizWords.Clear();
+        currentWord = null;
+        currentWordIndex = -1;
+        userAnswer = string.Empty;
+        showFeedback = false;
+        isAnswerCorrect = false;
+
+        /* Asıl Quiz modülleri bu blok içinde 
+
+        StateHasChanged(); // Yükleniyor durumunu göster
+
+        try
+        {
+            // Kullanıcı ID'sini al
+            var authState = await AuthenticationStateProvider.GetAuthenticationStateAsync();
+            var user = authState.User;
+            if (user.Identity?.IsAuthenticated ?? false)
+            {
+                userId = user.FindFirstValue(ClaimTypes.NameIdentifier); // Standart Identity ID'si
+                }
+
+            if (string.IsNullOrEmpty(userId))
+            {
+                errorMessage = "Kullanıcı bilgisi alınamadı.";
+                isLoading = false;
+                StateHasChanged();
+                return;
+                }       */
+
+                        StateHasChanged();
+
+        try
+        {
+            // Kullanıcı ID'sini al
+            var authState = await AuthenticationStateProvider.GetAuthenticationStateAsync();
+            var user = authState.User;
+            if (user.Identity?.IsAuthenticated ?? false)
+            {
+                userId = user.FindFirstValue(System.Security.Claims.ClaimTypes.NameIdentifier);
+            }
+            else // <<< GEÇİCİ TEST KODU BAŞLANGICI >>>
+            {
+                // Giriş yapılmadığında test için sabit bir ID ata
+                userId = "TEST_USER_ID"; // İstediğin bir test ID'si verebilirsin
+                Console.WriteLine("UYARI: Quiz sayfası için sabit TEST_USER_ID kullanılıyor.");
+            } // <<< GEÇİCİ TEST KODU BİTİŞİ >>>
+
+
+            // Eskiden burada userId null kontrolü vardı, şimdi olmamalı ama yine de bırakabiliriz.
+            if (string.IsNullOrEmpty(userId))
+            {
+                errorMessage = "Kullanıcı bilgisi alınamadı (Test ID bile yok?).";
+                isLoading = false;
+                StateHasChanged();
+                return;
+            }
+        
+
+            // Tekrar edilecek kelimeleri al
+            var reviewWords = await SrsService.GetWordsDueForReviewAsync(userId);
+
+            // Yeni kelimeleri al (şimdilik 5 tane alalım, sonra ayarlardan alınabilir)
+            int newWordCount = 5; // Ayarlardan veya sabit bir değer
+            var newWords = await SrsService.GetNewWordsAsync(userId, newWordCount);
+
+            // Listeleri birleştir ve karıştır
+            quizWords.AddRange(reviewWords);
+            quizWords.AddRange(newWords);
+
+            if (!quizWords.Any())
+            {
+                isQuizComplete = true; // Gösterilecek kelime yoksa sınav bitti sayılır
+            }
+            else
+            {
+                // Basit karıştırma (Fisher-Yates gibi daha iyi algoritmalar kullanılabilir)
+                var random = new Random();
+                quizWords = quizWords.OrderBy(x => random.Next()).ToList();
+
+                // İlk kelimeyi yükle
+                LoadNextWordInternal();
+            }
+        }
+        catch (Exception ex)
+        {
+            errorMessage = "Sınav yüklenirken bir hata oluştu.";
+            Console.WriteLine($"Quiz loading error: {ex.ToString()}");
+        }
+        finally
+        {
+            isLoading = false;
+            StateHasChanged(); // İçeriği veya hata mesajını göster
+        }
+    }
+
+    private void CheckAnswer()
+    {
+        if (currentWord == null || string.IsNullOrWhiteSpace(userAnswer)) return;
+
+        // Cevabı kontrol et (büyük/küçük harf duyarsız, boşlukları temizle)
+        isAnswerCorrect = string.Equals(
+            currentWord.TurWordName.Trim(),
+            userAnswer.Trim(),
+            StringComparison.OrdinalIgnoreCase);
+
+        showFeedback = true; // Geri bildirimi göster
+
+        // Cevabı SRS servisine işle
+        // Arka planda çalıştır, UI'ın beklemesine gerek yok (hata olursa loglanır)
+        _ = Task.Run(async () =>
+        {
+            if (!string.IsNullOrEmpty(userId)) // UserId kontrolü
+            {
+                try
+                {
+                    await SrsService.ProcessAnswerAsync(userId, currentWord.WordID, isAnswerCorrect);
+                }
+                catch (Exception ex)
+                {
+                    Console.WriteLine($"Error processing answer in background: {ex.ToString()}");
+                }
+            }
+        });
+
+        StateHasChanged(); // Geri bildirimi göstermek için UI'ı güncelle
+    }
+
+    private void LoadNextWord()
+    {
+        LoadNextWordInternal();
+        StateHasChanged(); // Yeni kelimeyi göstermek için UI'ı güncelle
+        // Odaklanmayı tetiklemek için OnAfterRenderAsync beklenecek
+    }
+
+    private void LoadNextWordInternal()
+    {
+        showFeedback = false; // Geri bildirimi gizle
+        userAnswer = string.Empty; // Cevap alanını temizle
+        currentWordIndex++; // Sonraki indekse geç
+
+        if (currentWordIndex < quizWords.Count)
+        {
+            currentWord = quizWords[currentWordIndex]; // Yeni kelimeyi ata
+        }
+        else
+        {
+            // Sınav bitti
+            currentWord = null;
+            isQuizComplete = true;
+        }
+    }
+
+    // Kullanıcı yazmaya başlayınca geri bildirimi temizle
+    private void ClearFeedback(ChangeEventArgs e)
+    {
+        if (showFeedback)
+        {
+            showFeedback = false;
+            // StateHasChanged(); // Her tuş vuruşunda render'ı tetiklememek için kaldırılabilir
+        }
+        // userAnswer zaten @bind-Value ile güncelleniyor
+    }
+
+    // Yeni sınava başlama butonu
+    private async Task StartNewQuiz()
+    {
+        await LoadQuizData(); // Veriyi yeniden yükle
+    }
+}
