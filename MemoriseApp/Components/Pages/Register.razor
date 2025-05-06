@@ -1,0 +1,148 @@
+﻿@page "/register"
+@layout AuthLayout
+@rendermode InteractiveServer 
+@using System.ComponentModel.DataAnnotations
+@using Microsoft.AspNetCore.Identity
+@using MemoriseApp.Models 
+@inject NavigationManager NavigationManager
+@inject UserManager<IdentityUser> UserManager 
+@inject IUserStore<IdentityUser> UserStore 
+@* @inject IEmailSender<IdentityUser> EmailSender // E-posta onayı için ileride gerekebilir *@
+
+<PageTitle>Kayıt Ol</PageTitle>
+
+<div class="container mt-4" style="max-width: 500px;">
+    @* Konteyneri biraz daraltalım *@
+    <div class="card shadow-sm">
+        <div class="card-body">
+            <h2 class="card-title text-center mb-4">
+                <i class="bi bi-person-plus-fill me-2"></i>Kullanıcı Kaydı
+            </h2>
+
+            @if (showMessage)
+            {
+                <div class="alert @(messageType == "success" ? "alert-success" : "alert-danger")" role="alert">
+                    <i class="bi @(messageType == "success" ? "bi-check-circle-fill" : "bi-exclamation-triangle-fill") me-2"></i>
+                    @message
+                </div>
+            }
+
+            <EditForm Model="@model" OnValidSubmit="@HandleValidSubmit" FormName="RegisterForm" novalidate>
+                @* Tarayıcı validasyonunu devre dışı bırak *@
+                <DataAnnotationsValidator />
+                @* <ValidationSummary class="mb-3" /> *@ @* Tüm hataları göstermek için *@
+
+                <div class="mb-3">
+                    <label for="username" class="form-label">@nameof(model.Username)</label>
+                    <InputText id="username" class="form-control" @bind-Value="model.Username" disabled="@isSubmitting" />
+                    <ValidationMessage For="@(() => model.Username)" />
+                </div>
+
+                <div class="mb-3">
+                    <label for="email" class="form-label">@nameof(model.Email)</label>
+                    <InputText type="email" id="email" class="form-control" @bind-Value="model.Email" disabled="@isSubmitting" />
+                    <ValidationMessage For="@(() => model.Email)" />
+                </div>
+
+                <div class="mb-3">
+                    <label for="password" class="form-label">@nameof(model.Password)</label>
+                    <InputText type="password" id="password" class="form-control" @bind-Value="model.Password" disabled="@isSubmitting" />
+                    <ValidationMessage For="@(() => model.Password)" />
+                </div>
+
+                <div class="mb-3">
+                    <label for="confirmPassword" class="form-label">@nameof(model.ConfirmPassword)</label>
+                    <InputText type="password" id="confirmPassword" class="form-control" @bind-Value="model.ConfirmPassword" disabled="@isSubmitting" />
+                    <ValidationMessage For="@(() => model.ConfirmPassword)" />
+                </div>
+
+                <div class="d-grid gap-2">
+                    @* Butonu tam genişlik yap *@
+                    <button type="submit" class="btn btn-primary btn-lg" disabled="@isSubmitting">
+                        @if (isSubmitting)
+                        {
+                            <span class="spinner-border spinner-border-sm me-1" role="status" aria-hidden="true"></span>
+                            <span>Kaydediliyor...</span>
+                        }
+                        else
+                        {
+                            <i class="bi bi-person-plus-fill me-1"></i>
+                            <span>Kayıt Ol</span>
+                        }
+                    </button>
+                </div>
+            </EditForm>
+
+            <hr class="my-4"> @* Ayırıcı çizgi *@
+
+            <div class="text-center">
+                <p class="mb-0">Zaten hesabınız var mı?</p>
+                <a href="@loginPath" class="link-secondary">Giriş Yap</a> @* Identity varsayılan login yolu *@
+            </div>
+        </div>
+    </div>
+</div>
+
+@code {
+    private readonly RegisterModel model = new();
+    private bool isSubmitting = false;
+    private bool showMessage = false;
+    private string message = "";
+    private string messageType = ""; // "success" veya "danger" (Bootstrap alert sınıfları için)
+
+    // Identity'nin varsayılan login yolu (değişebilir)
+    private readonly string loginPath = "/Account/Login";
+
+    private async Task HandleValidSubmit()
+    {
+        isSubmitting = true;
+        showMessage = false;
+        message = "";
+        messageType = "";
+        StateHasChanged();
+
+        // IdentityUser nesnesi oluştur
+        var user = new IdentityUser { UserName = model.Username, Email = model.Email };
+        user.EmailConfirmed = true; // Şimdilik e-posta onayı gerektirmeyelim
+
+        try
+        {
+            // Kullanıcıyı oluşturmayı dene (UserManager şifreyi hash'ler,
+            // kullanıcı adı ve email'i de UserStore aracılığıyla ayarlar)
+            var result = await UserManager.CreateAsync(user, model.Password);
+
+            if (result.Succeeded)
+            {
+                // Başarılı kayıt
+                messageType = "success";
+                message = "Kayıt işlemi başarılı! Giriş sayfasına yönlendiriliyorsunuz...";
+                showMessage = true;
+                StateHasChanged();
+
+                await Task.Delay(2000);
+                NavigationManager.NavigateTo(loginPath);
+            }
+            else
+            {
+                // Hataları göster
+                messageType = "danger";
+                message = string.Join(" ", result.Errors.Select(e => e.Description));
+                showMessage = true;
+            }
+        }
+        catch (Exception ex) // Beklenmedik hatalar
+        {
+            messageType = "danger";
+            message = "Kayıt sırasında beklenmedik bir sunucu hatası oluştu. Lütfen tekrar deneyin.";
+            showMessage = true;
+            Console.WriteLine($"Registration Error: {ex}"); // Hata loglama
+        }
+        finally
+        {
+            isSubmitting = false;
+            StateHasChanged();
+        }
+    }
+
+
+}

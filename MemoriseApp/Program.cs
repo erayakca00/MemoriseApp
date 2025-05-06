@@ -1,10 +1,11 @@
 using MemoriseApp.Components;
 using MemoriseApp.Data;
+using MemoriseApp.Services;
 using Microsoft.AspNetCore.Identity;
 using Microsoft.AspNetCore.Identity.UI;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.AspNetCore.Diagnostics.EntityFrameworkCore;
-using MemoriseApp.Services;
+
 
 var builder = WebApplication.CreateBuilder(args);
 
@@ -28,13 +29,16 @@ builder.Services.AddDbContext<ApplicationDbContext>(options =>
     options.UseNpgsql(connectionString));
 
 // ASP.NET Identity için gerekli servislerin eklenmesi.1
-builder.Services.AddDefaultIdentity<IdentityUser>(options =>
-{
-    options.SignIn.RequireConfirmedAccount = false;
-    options.User.RequireUniqueEmail = true;
+builder.Services.AddDefaultIdentity<IdentityUser>(options => {
+    // Þifre, kullanýcý adý, lockout vb. ayarlarý burada yapabilirsiniz
+    options.SignIn.RequireConfirmedAccount = false; // E-posta onayý þimdilik kapalý
+    options.Password.RequireDigit = false; // Örnek: Rakam zorunluluðunu kaldýr
+    options.Password.RequiredLength = 6;
+    options.Password.RequireNonAlphanumeric = false;
+    options.Password.RequireUppercase = false;
+    options.Password.RequireLowercase = false;
 })
-    .AddRoles<IdentityRole>()
-    .AddEntityFrameworkStores<ApplicationDbContext>();
+.AddEntityFrameworkStores<ApplicationDbContext>(); // Veritabaný baðlantýsý
 
 builder.Services.Configure<Microsoft.AspNetCore.HttpsPolicy.HttpsRedirectionOptions>(options =>
 {
@@ -42,6 +46,8 @@ builder.Services.Configure<Microsoft.AspNetCore.HttpsPolicy.HttpsRedirectionOpti
     options.HttpsPort = 7105;
 });
 
+// Özel Kullanýcý Servisini Kaydet
+builder.Services.AddScoped<IUserService, UserService>(); 
 builder.Services.AddScoped<SrsService>(); // SRS servisini ekle
 
 var app = builder.Build();
