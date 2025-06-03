@@ -1,5 +1,10 @@
 ﻿@inherits LayoutComponentBase
-
+@using System.Security.Claims
+@using MemoriseApp.Services
+@using Microsoft.AspNetCore.Components.Authorization
+@inject AuthenticationStateProvider AuthenticationStateProvider
+@inject NavigationManager NavigationManager
+@inject IUserService UserService // YENİ: IUserService'i inject edin
 
 <div class="page">
     <div class="sidebar">
@@ -7,6 +12,42 @@
     </div>
 
     <main>
+        <div class="top-row px-4 auth-actions">
+            <AuthorizeView>
+                <Authorized>
+                    @{
+                        var user = context.User;
+                        var firstName = user.FindFirstValue(ClaimTypes.GivenName);
+                        var lastName = user.FindFirstValue(ClaimTypes.Surname);
+                        var displayName = (!string.IsNullOrEmpty(firstName) || !string.IsNullOrEmpty(lastName))
+                        ? $"{firstName} {lastName}".Trim()
+                        : user.Identity?.Name;
+                    }
+                    <div class="dropdown">
+                        <button class="btn btn-link dropdown-toggle text-decoration-none" type="button" id="userDropdownMenuButton" data-bs-toggle="dropdown" aria-expanded="false">
+                            <i class="bi bi-person-circle me-1"></i>
+                            @displayName
+                        </button>
+                        <ul class="dropdown-menu dropdown-menu-end" aria-labelledby="userDropdownMenuButton">
+                            <li><a class="dropdown-item" href="account/profile">Profilim</a></li>
+                            <li><a class="dropdown-item" href="account/settings">Ayarlar</a></li>
+                            <li><hr class="dropdown-divider"></li>
+                            <li>
+                                <button class="dropdown-item" @onclick="HandleLogout">
+                                    @* Metot adını değiştirdim *@
+                                    <i class="bi bi-box-arrow-right me-1"></i> Çıkış Yap
+                                </button>
+                            </li>
+                        </ul>
+                    </div>
+                </Authorized>
+                <NotAuthorized>
+                    <a href="login" class="btn btn-link text-decoration-none">Giriş Yap</a>
+                    <a href="register" class="btn btn-primary ms-2">Kayıt Ol</a>
+                </NotAuthorized>
+            </AuthorizeView>
+        </div>
+
         <article class="content px-4">
             @Body
         </article>
@@ -17,5 +58,15 @@
     An unhandled error has occurred.
     <a href="" class="reload">Reload</a>
     <a class="dismiss">🗙</a>
-</div> 
+</div>
 
+
+@code {
+    private async Task HandleLogout() // Metot adını HandleLogout olarak değiştirdim ve async yaptım
+    {
+        await UserService.LogoutUserAsync();
+        // Çıkış yaptıktan sonra kullanıcıyı ana sayfaya veya giriş sayfasına yönlendir.
+        // forceLoad: true, Blazor devresinin ve kimlik doğrulama durumunun tamamen yenilenmesini sağlar.
+        NavigationManager.NavigateTo("/", forceLoad: true);
+    }
+}

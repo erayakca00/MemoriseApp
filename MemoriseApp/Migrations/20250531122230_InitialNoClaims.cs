@@ -4,10 +4,10 @@ using Npgsql.EntityFrameworkCore.PostgreSQL.Metadata;
 
 #nullable disable
 
-namespace MemoriseApp.Data.Migrations
+namespace MemoriseApp.Migrations
 {
     /// <inheritdoc />
-    public partial class AddWordRelatedTables : Migration
+    public partial class InitialNoClaims : Migration
     {
         /// <inheritdoc />
         protected override void Up(MigrationBuilder migrationBuilder)
@@ -263,10 +263,9 @@ namespace MemoriseApp.Data.Migrations
                 unique: true);
 
             migrationBuilder.CreateIndex(
-                name: "IX_UserWordProgresses_UserId_WordID",
+                name: "IX_UserWordProgresses_UserId",
                 table: "UserWordProgresses",
-                columns: new[] { "UserId", "WordID" },
-                unique: true);
+                column: "UserId");
 
             migrationBuilder.CreateIndex(
                 name: "IX_UserWordProgresses_WordID",

@@ -1,24 +1,19 @@
-﻿using Microsoft.AspNetCore.Identity; 
+﻿using Microsoft.AspNetCore.Identity;
 using System.Threading.Tasks;
+using MemoriseApp.Components;
+using MemoriseApp.Models; // User ve AuthResult için
+
 
 namespace MemoriseApp.Services
 {
     public interface IUserService
     {
-        /// <summary>
-        /// Verilen kullanıcı adına sahip kullanıcıyı getirir. Bulamazsa null döner.
-        /// </summary>
-        Task<IdentityUser?> GetUserByUsernameAsync(string username);
-        /// <summary>
-        /// Yeni bir kullanıcı kaydeder. Başarılı olursa IdentityUser nesnesini,
-        /// başarısız olursa (örn: kullanıcı adı zaten var, şifre politikası ihlali) null döner.
-        /// Şifreyi otomatik olarak hash'ler.
-        /// </summary>
-        Task<IdentityUser?> RegisterUserAsync(string username, string password);
-        // İleride eklenebilecek diğer metotlar:
-        // Task<SignInResult> LoginUserAsync(string username, string password);
-        // Task LogoutUserAsync();
-        // Task<IdentityUser?> GetUserByIdAsync(string userId);
-    
+        Task<AuthResult> RegisterUserAsync(string username, string email, string password);
+        Task<AuthResult> LoginUserAsync(string usernameOrEmail, string password, bool rememberMe);
+        Task LogoutUserAsync(); // Çıkış işlemi için
+        Task<IdentityUser?> GetCurrentUserAsync(); // Mevcut kullanıcıyı almak için (isteğe bağlı, AuthenticationStateProvider da kullanılabilir)
+        Task<IdentityUser?> GetUserByIdAsync(string userId); // Kullanıcıyı ID ile almak için
+        Task<IdentityUser?> GetUserByUsernameAsync(string username); // Kullanıcıyı kullanıcı adı ile almak için
+
     }
 }
