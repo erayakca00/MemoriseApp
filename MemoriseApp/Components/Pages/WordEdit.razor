@@ -43,38 +43,62 @@
 
                     <div class="mb-3">
                         <label for="exampleSentence" class="form-label">Örnek Cümle</label>
-                        @* Örnek cümle için ayrı bir model/ilişki gerekebilir. Şimdilik ilk örneği düzenleyelim *@
                         <InputTextArea @bind-Value="sampleSentence" class="form-control" id="exampleSentence" rows="3" />
-                        @* <ValidationMessage For="@(() => sampleSentence)" /> *@ @* Gerekirse validasyon eklenebilir *@
                     </div>
 
+                    @* --- GÜNCELLENMİŞ RESİM ALANI BAŞLANGICI --- *@
                     <div class="mb-3">
-                        <label class="form-label">Mevcut Resim</label>
-                        <div class="text-center mb-2">
-                            @if (!string.IsNullOrEmpty(currentImageUrl))
+                        <label class="form-label fw-bold">Kelime Resmi</label>
+
+                        @* Mevcut Resmi Gösterme ve Silme Butonu *@
+                        <div class="mb-2">
+                            @if (!string.IsNullOrEmpty(wordToEdit?.PicturePath))
                             {
-                                <img src="@currentImageUrl" class="img-fluid" style="max-height: 200px;" alt="Mevcut Resim" id="currentImage">
+                                <div class="position-relative d-inline-block border p-1 rounded" style="max-width: 250px;">
+                                    <img src="@wordToEdit.PicturePath" class="img-fluid" style="max-height: 200px;" alt="Mevcut Resim: @wordToEdit.EngWordName" id="currentImage">
+                                    <button type="button" class="btn btn-sm btn-danger position-absolute top-0 end-0 m-1 opacity-75"
+                                            title="Bu resmi kaldır (Kaydet'e basınca silinecek)"
+                                            @onclick="PrepareDeleteImage">
+                                        <i class="bi bi-trash"></i> @* Font Awesome ikonu, projenizde varsa görünür *@
+                                    </button>
+                                </div>
                             }
                             else
                             {
-                                <span class="text-muted">Mevcut resim yok.</span>
+                                <div class="text-muted p-2 border rounded" style="min-height: 50px; display:flex; align-items:center; justify-content:center;">
+                                    <small>Bu kelime için mevcut resim yok veya kaldırıldı.</small>
+                                </div>
                             }
                         </div>
+
+                        @* Yeni Resim Seçme Alanı *@
                         <div class="mb-3">
-                            <label for="imageUpload" class="form-label">Yeni Resim Seç (Değiştirmek için)</label>
+                            <label for="imageUpload" class="form-label">
+                                @if (!string.IsNullOrEmpty(wordToEdit?.PicturePath))
+                                {
+                                    <span>Yeni Resim Seç (Mevcut resmi değiştirmek için):</span>
+                                }
+                                else
+                                {
+                                    <span>Resim Seç:</span>
+                                }
+                            </label>
                             <InputFile OnChange="@LoadImage" class="form-control" id="imageUpload" accept=".jpg,.jpeg,.png,.gif" />
                         </div>
+
                         @* Yeni Seçilen Resmi Önizleme Alanı *@
                         @if (!string.IsNullOrEmpty(newImageDataUrl))
                         {
                             <div class="mb-3">
-                                <label>Yeni Resim Önizlemesi:</label>
+                                <label class="form-label">Yeni Resim Önizlemesi:</label>
                                 <div>
-                                    <img src="@newImageDataUrl" style="max-width: 200px; max-height: 200px;" alt="Yeni Resim Önizleme" />
+                                    <img src="@newImageDataUrl" class="img-thumbnail" style="max-width: 200px; max-height: 200px;" alt="Yeni Resim Önizleme" />
                                 </div>
                             </div>
                         }
                     </div>
+                    @* --- GÜNCELLENMİŞ RESİM ALANI BİTİŞİ --- *@
+
 
                     @* Hata/Başarı Mesajları *@
                     @if (!string.IsNullOrEmpty(errorMessage))
@@ -93,51 +117,77 @@
                 </EditForm>
             </div>
         </div>
+
+        @* Resim Silme Onay Modalı *@
+        @if (showDeleteImageModal)
+        {
+            <div class="modal fade show" tabindex="-1" style="display:block; background-color: rgba(0,0,0,0.5);" role="dialog" aria-modal="true" aria-labelledby="deleteImageModalTitle">
+                <div class="modal-dialog modal-dialog-centered">
+                    <div class="modal-content">
+                        <div class="modal-header">
+                            <h5 class="modal-title" id="deleteImageModalTitle">Resmi Kaldırmayı Onayla</h5>
+                            <button type="button" class="btn-close" @onclick="() => showDeleteImageModal = false" aria-label="Kapat"></button>
+                        </div>
+                        <div class="modal-body">
+                            <p>"<strong>@wordToEdit?.EngWordName</strong>" kelimesine ait resmi kaldırmak istediğinizden emin misiniz?</p>
+                            <p class="text-muted"><small>Bu işlem, siz "Kaydet" butonuna basana kadar kalıcı olmayacaktır.</small></p>
+                        </div>
+                        <div class="modal-footer">
+                            <button type="button" class="btn btn-secondary" @onclick="() => showDeleteImageModal = false">İptal</button>
+                            <button type="button" class="btn btn-warning" @onclick="ConfirmDeleteImage">Evet, Kaldır</button>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        }
     }
 </div>
 
 
 @code {
     [Parameter]
-    public int WordId { get; set; } // Route parametresini int olarak al
+    public int WordId { get; set; }
 
-    private Word? wordToEdit; // Düzenlenecek kelime nesnesi
-    private string sampleSentence = string.Empty; // Örnek cümle (şimdilik ilkini alacağız)
-    private string? currentImageUrl; // Mevcut resmin URL'si
+    private Word? wordToEdit;
+    private string sampleSentence = string.Empty;
+    // private string? currentImageUrl; // Artık doğrudan wordToEdit.PicturePath kullanılıyor
     private string? errorMessage;
     private string? successMessage;
-    private bool isLoading = true; // Yükleme durumu
+    private bool isLoading = true;
 
     // --- Resim Yükleme için ---
     private IBrowserFile? selectedImageFile;
     private string? newImageDataUrl; // Yeni resim önizlemesi
+    private byte[]? loadedFileBuffer; // Okunan dosya verisini saklamak için
     private readonly long maxFileSize = 1024 * 1024 * 5; // 5 MB
     private readonly string[] allowedExtensions = { ".jpg", ".jpeg", ".png", ".gif" };
-    // --- ---
+
+    // --- Resim Silme için ---
+    private bool showDeleteImageModal = false;
+    private string? originalPicturePathBeforeEdit; // Sayfa yüklendiğinde veya başarılı bir kayıttan sonra orijinal yolu saklar
 
     protected override async Task OnParametersSetAsync()
     {
-        isLoading = true; // Yüklemeye başla
+        isLoading = true;
         errorMessage = null;
         successMessage = null;
-        wordToEdit = null; // Önce temizle
+        wordToEdit = null;
+        showDeleteImageModal = false; // Sayfa her yüklendiğinde modalı gizle
+        // Resimle ilgili değişkenleri de sıfırlayalım
+        selectedImageFile = null;
+        newImageDataUrl = null;
+        loadedFileBuffer = null;
 
         try
         {
-            // Veritabanından kelimeyi ve ilişkili ilk örnek cümleyi çek
-            // Include WordSamples eğer örnek cümleyi de düzenlemek istersen.
-            // Şimdilik sadece Word'ü çekelim, örnek cümleyi ayrı yönetelim (basitlik için)
             wordToEdit = await DbContext.Words.FindAsync(WordId);
 
             if (wordToEdit != null)
             {
-                // İlk örnek cümleyi bul (varsa)
                 var firstSample = await DbContext.WordSamples
                                                  .FirstOrDefaultAsync(s => s.WordID == WordId);
                 sampleSentence = firstSample?.SampleSentence ?? string.Empty;
-
-                // Mevcut resim yolunu ayarla
-                currentImageUrl = wordToEdit.PicturePath;
+                originalPicturePathBeforeEdit = wordToEdit.PicturePath; // Orijinal resim yolunu sakla
             }
             else
             {
@@ -151,62 +201,131 @@
         }
         finally
         {
-            isLoading = false; // Yükleme bitti
+            isLoading = false;
         }
     }
 
     private async Task LoadImage(InputFileChangeEventArgs e)
     {
-        // WordAdd.razor'daki LoadImage metoduyla aynı mantık
-        selectedImageFile = null;
+        Console.WriteLine("LoadImage metodu başladı.");
+        // selectedImageFile = null; // Zaten OnParametersSetAsync'te veya burada en başta sıfırlanabilir
         newImageDataUrl = null;
-        errorMessage = null; // Hata mesajını temizle
+        errorMessage = null;
+        loadedFileBuffer = null;
+        // StateHasChanged(); // Bu genellikle metod sonunda yapılır
 
-        if (e.FileCount == 0) return;
+        if (e.FileCount == 0)
+        {
+            Console.WriteLine("Dosya seçilmedi, mevcut resim (varsa) kalır.");
+            // Eğer kullanıcı dosya seçme penceresini iptal ederse,
+            // selectedImageFile'ı null yapmak ve önizlemeyi temizlemek isteyebiliriz.
+            selectedImageFile = null; // Seçimi iptal et
+            // newImageDataUrl ve loadedFileBuffer zaten null
+            StateHasChanged();
+            return;
+        }
 
         try
         {
             selectedImageFile = e.File;
+            Console.WriteLine($"Dosya Adı: {selectedImageFile.Name}, Boyut: {selectedImageFile.Size}, Tip: {selectedImageFile.ContentType}");
 
             if (selectedImageFile.Size > maxFileSize)
             {
                 errorMessage = $"Dosya boyutu çok büyük. Maksimum boyut: {maxFileSize / (1024 * 1024)} MB.";
-                selectedImageFile = null; StateHasChanged(); return;
+                Console.WriteLine(errorMessage);
+                selectedImageFile = null; loadedFileBuffer = null; StateHasChanged(); return;
             }
+
             var fileExtension = Path.GetExtension(selectedImageFile.Name).ToLowerInvariant();
+            Console.WriteLine($"Dosya Uzantısı: {fileExtension}");
             if (!allowedExtensions.Contains(fileExtension))
             {
                 errorMessage = $"Geçersiz dosya türü. İzin verilenler: {string.Join(", ", allowedExtensions)}";
-                selectedImageFile = null; StateHasChanged(); return;
+                Console.WriteLine(errorMessage);
+                selectedImageFile = null; loadedFileBuffer = null; StateHasChanged(); return;
             }
 
-            var buffer = new byte[selectedImageFile.Size];
-            int bytesRead = await selectedImageFile.OpenReadStream(maxFileSize).ReadAsync(buffer);
-            newImageDataUrl = $"data:{selectedImageFile.ContentType};base64,{Convert.ToBase64String(buffer)}";
-            StateHasChanged();
+            loadedFileBuffer = new byte[selectedImageFile.Size];
+            Console.WriteLine("Buffer oluşturuldu, dosya okunuyor...");
+            using (var stream = selectedImageFile.OpenReadStream(maxFileSize))
+            {
+                int offset = 0;
+                while (offset < loadedFileBuffer.Length)
+                {
+                    int bytesRead = await stream.ReadAsync(loadedFileBuffer, offset, loadedFileBuffer.Length - offset);
+                    if (bytesRead == 0) break;
+                    offset += bytesRead;
+                }
+                Console.WriteLine($"{offset} byte okundu ve loadedFileBuffer'a saklandı.");
+            }
+
+            newImageDataUrl = $"data:{selectedImageFile.ContentType};base64,{Convert.ToBase64String(loadedFileBuffer)}";
+            Console.WriteLine($"newImageDataUrl oluşturuldu. Uzunluk: {newImageDataUrl.Length}");
+            // Yeni resim seçildiğinde, kelimenin PicturePath'ini null yapmıyoruz,
+            // HandleUpdateSubmit'te yeni resim kaydedilince güncellenecek.
+            // Eğer kullanıcı resmi silmek istiyorsa, ConfirmDeleteImage'de PicturePath null yapılacak.
         }
         catch (Exception ex)
         {
             errorMessage = $"Yeni resim seçilirken bir hata oluştu: {ex.Message}";
-            Console.WriteLine($"Yeni resim seçme hatası: {ex.ToString()}");
-            selectedImageFile = null; newImageDataUrl = null; StateHasChanged();
+            Console.WriteLine($"HATA - Yeni resim seçme: {ex.ToString()}");
+            selectedImageFile = null; newImageDataUrl = null; loadedFileBuffer = null;
+        }
+        finally
+        {
+            StateHasChanged(); // Tüm değişiklikleri UI'a yansıt
+        }
+    }
+
+    private void PrepareDeleteImage()
+    {
+        if (wordToEdit != null && !string.IsNullOrEmpty(wordToEdit.PicturePath))
+        {
+            showDeleteImageModal = true;
+        }
+    }
+
+    private void ConfirmDeleteImage()
+    {
+        showDeleteImageModal = false; // Modalı kapat
+        if (wordToEdit != null)
+        {
+            // Sadece modeldeki yolu null yap ve UI'ı güncelle
+            // Fiziksel silme ve DB kaydı HandleUpdateSubmit'e bırakılacak
+            wordToEdit.PicturePath = null;
+            newImageDataUrl = null;   // Yeni resim önizlemesini de temizle (eğer varsa)
+            selectedImageFile = null; // Yeni dosya seçimini de iptal et (eğer varsa)
+            loadedFileBuffer = null;  // Buffer'ı da temizle
+            successMessage = "Resim kaldırılmak üzere işaretlendi. Değişikliği tamamlamak için 'Kaydet'e basın.";
+            errorMessage = null;
+            StateHasChanged();
         }
     }
 
     private async Task HandleUpdateSubmit()
     {
-        if (wordToEdit == null) return; // Kelime yüklenmediyse bir şey yapma
+        if (wordToEdit == null)
+        {
+            errorMessage = "Düzenlenecek kelime bulunamadı.";
+            return;
+        }
 
         isLoading = true;
         successMessage = null;
         errorMessage = null;
+        StateHasChanged();
 
-        // --- Mükerrer Kontrolü (Düzenleme için güncellendi) ---
-        // Kendisi hariç başka bir kelimeyle çakışıyor mu diye kontrol et
+        Console.WriteLine($"HandleUpdateSubmit BAŞLADI - isLoading başlangıç: {isLoading}");
+        Console.WriteLine($"Mevcut PicturePath: {wordToEdit.PicturePath}, Orijinal PicturePath: {originalPicturePathBeforeEdit}");
+        Console.WriteLine($"selectedImageFile: {(selectedImageFile != null ? selectedImageFile.Name : "null")}, loadedFileBuffer dolu mu: {loadedFileBuffer != null}");
+
+
+        // Mükerrer Kontrolü
         string lowerEngWord = wordToEdit.EngWordName.ToLower();
         string lowerTurWord = wordToEdit.TurWordName.ToLower();
         bool duplicateExists = await DbContext.Words
-                                              .AnyAsync(w => w.WordID != wordToEdit.WordID && // Kendisi hariç
+                                              .AnyAsync(w => w.WordID != wordToEdit.WordID &&
                                                              (w.EngWordName.ToLower() == lowerEngWord ||
                                                               w.TurWordName.ToLower() == lowerTurWord));
         if (duplicateExists)
@@ -214,15 +333,21 @@
             errorMessage = "Girdiğiniz İngilizce veya Türkçe kelimelerden biri başka bir kayıtta zaten mevcut.";
             isLoading = false; StateHasChanged(); return;
         }
-        // --- ---
 
+        string? physicalPathToDelete = null; // Fiziksel olarak silinecek dosyanın yolu
+        string? newUploadedPath = null;      // Yeni yüklenen dosyanın veritabanına kaydedilecek yolu
 
-        // --- Resim Kaydetme/Silme Mantığı ---
-        string? oldImagePath = wordToEdit.PicturePath; // Eski yolu sakla
-        string? newUploadedPath = null;
-
-        if (selectedImageFile != null) // Yeni resim seçildiyse
+        // Durum 1: Yeni bir resim seçilmiş ve yüklenmiş
+        if (selectedImageFile != null && loadedFileBuffer != null)
         {
+            Console.WriteLine("Yeni resim yükleme işlemi başlıyor.");
+            // Eğer daha önce bir resim vardıysa (ve bu yeni resimle değiştiriliyorsa), eskisini silmek üzere işaretle
+            if (!string.IsNullOrEmpty(originalPicturePathBeforeEdit))
+            {
+                physicalPathToDelete = originalPicturePathBeforeEdit;
+                Console.WriteLine($"Eski resim ({physicalPathToDelete}) silinmek üzere işaretlendi (yeni resim yükleniyor).");
+            }
+
             try
             {
                 var uploadsFolder = Path.Combine(Environment.WebRootPath, "uploads", "images");
@@ -231,13 +356,11 @@
                 var uniqueFileName = Guid.NewGuid().ToString() + Path.GetExtension(selectedImageFile.Name);
                 var filePath = Path.Combine(uploadsFolder, uniqueFileName);
 
-                await using (var fs = new FileStream(filePath, FileMode.Create))
-                {
-                    await selectedImageFile.OpenReadStream(maxFileSize).CopyToAsync(fs);
-                }
-                newUploadedPath = $"/uploads/images/{uniqueFileName}"; // Yeni yolu ata
-                wordToEdit.PicturePath = newUploadedPath; // Modeldeki yolu güncelle
-                Console.WriteLine($"Yeni resim kaydedildi: {filePath}");
+                await File.WriteAllBytesAsync(filePath, loadedFileBuffer); // Saklanan buffer'ı kullan
+
+                newUploadedPath = $"/uploads/images/{uniqueFileName}";
+                wordToEdit.PicturePath = newUploadedPath; // Modeldeki yolu yeni resimle güncelle
+                Console.WriteLine($"Yeni resim (buffer'dan) kaydedildi: {filePath}");
             }
             catch (Exception ex)
             {
@@ -246,80 +369,87 @@
                 isLoading = false; StateHasChanged(); return;
             }
         }
-        // --- ---
+        // Durum 2: Yeni resim seçilmemiş AMA mevcut resmin silinmesi istenmiş
+        // (ConfirmDeleteImage'de wordToEdit.PicturePath null yapılmıştı)
+        else if (selectedImageFile == null && wordToEdit.PicturePath == null && !string.IsNullOrEmpty(originalPicturePathBeforeEdit))
+        {
+            Console.WriteLine("Mevcut resmin silinmesi işlemi başlıyor.");
+            physicalPathToDelete = originalPicturePathBeforeEdit;
+            // wordToEdit.PicturePath zaten null durumda.
+            Console.WriteLine($"Eski resim ({physicalPathToDelete}) silinmek üzere işaretlendi (kullanıcı sildi).");
+        }
+        // Durum 3: Resimle ilgili bir değişiklik yok (ne yeni resim var ne de silme isteği)
+        // Bu durumda wordToEdit.PicturePath orijinal değeriyle kalır (originalPicturePathBeforeEdit).
 
         try
         {
-            // Örnek Cümleyi Güncelle (Basit Yaklaşım: Varsa ilkini silip yenisini ekle)
+            // Örnek Cümleyi Güncelle
             var existingSample = await DbContext.WordSamples.FirstOrDefaultAsync(s => s.WordID == wordToEdit.WordID);
             if (existingSample != null)
             {
-                if (string.IsNullOrWhiteSpace(sampleSentence)) // Cümle silindiyse
-                {
-                    DbContext.WordSamples.Remove(existingSample);
-                }
-                else if (existingSample.SampleSentence != sampleSentence) // Cümle değiştiyse
-                {
-                    existingSample.SampleSentence = sampleSentence;
-                    DbContext.WordSamples.Update(existingSample);
-                }
-                // Değişmediyse bir şey yapma
+                if (string.IsNullOrWhiteSpace(sampleSentence))
+                { DbContext.WordSamples.Remove(existingSample); }
+                else if (existingSample.SampleSentence != sampleSentence)
+                { existingSample.SampleSentence = sampleSentence; DbContext.WordSamples.Update(existingSample); }
             }
-            else if (!string.IsNullOrWhiteSpace(sampleSentence)) // Önce yoktu ama şimdi eklendiyse
-            {
-                DbContext.WordSamples.Add(new WordSample { WordID = wordToEdit.WordID, SampleSentence = sampleSentence });
-            }
+            else if (!string.IsNullOrWhiteSpace(sampleSentence))
+            { DbContext.WordSamples.Add(new WordSample { WordID = wordToEdit.WordID, SampleSentence = sampleSentence }); }
 
-
-            // Kelime nesnesini güncelle olarak işaretle
             DbContext.Words.Update(wordToEdit);
+            await DbContext.SaveChangesAsync(); // Önce veritabanı değişikliklerini kaydet
 
-            // Değişiklikleri kaydet
-            await DbContext.SaveChangesAsync();
-
-            // --- Eski Resmi Sil (Yeni resim başarıyla kaydedildiyse ve eski resim varsa) ---
-            if (newUploadedPath != null && !string.IsNullOrEmpty(oldImagePath))
+            // Veritabanı kaydı başarılıysa, işaretlenen fiziksel dosyayı sil
+            if (!string.IsNullOrEmpty(physicalPathToDelete))
             {
                 try
                 {
-                    var oldFilePath = Path.Combine(Environment.WebRootPath, oldImagePath.TrimStart('/')); // Fiziksel yolu bul
-                    if (File.Exists(oldFilePath))
+                    var fullPath = Path.Combine(Environment.WebRootPath, physicalPathToDelete.TrimStart('/'));
+                    if (File.Exists(fullPath))
                     {
-                        File.Delete(oldFilePath);
-                        Console.WriteLine($"Eski resim silindi: {oldFilePath}");
+                        File.Delete(fullPath);
+                        Console.WriteLine($"Fiziksel dosya başarıyla silindi: {fullPath}");
+                    }
+                    else
+                    {
+                        Console.WriteLine($"Silinecek fiziksel dosya bulunamadı (zaten silinmiş olabilir): {fullPath}");
                     }
                 }
                 catch (Exception ex)
                 {
-                    Console.WriteLine($"Eski resim silinirken hata oluştu ({oldImagePath}): {ex.ToString()}");
-                    // Bu hatayı kullanıcıya göstermeyebiliriz, sadece loglamak yeterli olabilir.
+                    // Fiziksel dosya silme hatasını logla ama kullanıcıya göstermeyebiliriz, DB kaydı zaten yapıldı.
+                    Console.WriteLine($"Fiziksel dosya silinirken hata oluştu ({physicalPathToDelete}): {ex.ToString()}");
                 }
             }
-            // --- ---
 
             successMessage = "Kelime başarıyla güncellendi.";
-            currentImageUrl = wordToEdit.PicturePath; // Mevcut resmi güncelle
-            selectedImageFile = null; // Seçimi temizle
-            newImageDataUrl = null; // Önizlemeyi temizle
-            isLoading = false;
-            StateHasChanged();
-
-            // Listeye geri yönlendir
-            await Task.Delay(1500); // Mesajı görmek için kısa bir bekleme
-            NavigationManager.NavigateTo("/words/list");
-
+            originalPicturePathBeforeEdit = wordToEdit.PicturePath; // Bir sonraki düzenleme için orijinal yolu güncelle
+            // UI temizleme
+            selectedImageFile = null;
+            newImageDataUrl = null;
+            loadedFileBuffer = null;
         }
         catch (DbUpdateException dbEx)
         {
             errorMessage = $"Veritabanı güncelleme hatası: {dbEx.InnerException?.Message ?? dbEx.Message}";
             Console.WriteLine($"Veritabanı güncelleme hatası: {dbEx.ToString()}");
-            isLoading = false; StateHasChanged();
+            // Hata durumunda, eğer PicturePath'i değiştirmiştik ama DB'ye yansıtamadıysak,
+            // belki originalPicturePathBeforeEdit'e geri döndürmek gerekebilir (kullanıcı deneyimi için).
+            // Şimdilik bu kadar detaylandırmayalım.
         }
         catch (Exception ex)
         {
             errorMessage = $"Kelime güncellenirken bir hata oluştu: {ex.Message}";
             Console.WriteLine($"Kelime güncelleme hatası: {ex.ToString()}");
-            isLoading = false; StateHasChanged();
+        }
+        finally
+        {
+            isLoading = false;
+            StateHasChanged();
+            if (string.IsNullOrEmpty(errorMessage) && !string.IsNullOrEmpty(successMessage))
+            {
+                await Task.Delay(1500); // Mesajın görünmesi için kısa bir bekleme
+                NavigationManager.NavigateTo("/words/list");
+            }
         }
     }
 }

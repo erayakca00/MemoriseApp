@@ -3,20 +3,17 @@ using System;
 using MemoriseApp.Data;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Infrastructure;
-using Microsoft.EntityFrameworkCore.Migrations;
 using Microsoft.EntityFrameworkCore.Storage.ValueConversion;
 using Npgsql.EntityFrameworkCore.PostgreSQL.Metadata;
 
 #nullable disable
 
-namespace MemoriseApp.Data.Migrations
+namespace MemoriseApp.Migrations
 {
     [DbContext(typeof(ApplicationDbContext))]
-    [Migration("20250429233819_AddWordRelatedTables")]
-    partial class AddWordRelatedTables
+    partial class ApplicationDbContextModelSnapshot : ModelSnapshot
     {
-        /// <inheritdoc />
-        protected override void BuildTargetModel(ModelBuilder modelBuilder)
+        protected override void BuildModel(ModelBuilder modelBuilder)
         {
 #pragma warning disable 612, 618
             modelBuilder
@@ -57,10 +54,9 @@ namespace MemoriseApp.Data.Migrations
 
                     b.HasKey("UserWordProgressID");
 
-                    b.HasIndex("WordID");
+                    b.HasIndex("UserId");
 
-                    b.HasIndex("UserId", "WordID")
-                        .IsUnique();
+                    b.HasIndex("WordID");
 
                     b.ToTable("UserWordProgresses");
                 });

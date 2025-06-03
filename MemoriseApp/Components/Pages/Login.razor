@@ -1,0 +1,114 @@
+﻿@page "/login"
+@layout AuthLayout // Eğer kayıt sayfası için ayrı bir layout kullanıyorsanız, giriş için de kullanabilirsiniz.
+@using MemoriseApp.Services
+@using MemoriseApp.Models
+@using Microsoft.AspNetCore.Components.Authorization
+@using System.ComponentModel.DataAnnotations
+@rendermode InteractiveServer
+@inject NavigationManager NavigationManager
+@inject IUserService UserService
+@inject AuthenticationStateProvider AuthenticationStateProvider // Oturum durumunu güncellemek için
+
+<PageTitle>Giriş Yap</PageTitle>
+
+<div class="row justify-content-center mt-5">
+    <div class="col-md-6 col-lg-4">
+        <div class="card shadow">
+            <div class="card-header bg-primary text-white text-center">
+                <h4>Giriş Yap</h4>
+            </div>
+            <div class="card-body">
+                <EditForm Model="@loginModel" OnValidSubmit="HandleLogin">
+                    <DataAnnotationsValidator />
+
+                    @if (!string.IsNullOrEmpty(errorMessage))
+                    {
+                        <div class="alert alert-danger" role="alert">
+                            @errorMessage
+                        </div>
+                    }
+
+                    <div class="mb-3">
+                        <label for="username" class="form-label">Kullanıcı Adı</label>
+                        <InputText @bind-Value="loginModel.UserNameOrEmail" class="form-control" id="username" placeholder="Kullanıcı adınızı girin" />
+                        <ValidationMessage For="@(() => loginModel.UserNameOrEmail)" />
+                    </div>
+
+                    <div class="mb-3">
+                        <label for="password" class="form-label">Şifre</label>
+                        <InputText @bind-Value="loginModel.Password" type="password" class="form-control" id="password" placeholder="Şifrenizi girin" />
+                        <ValidationMessage For="@(() => loginModel.Password)" />
+                    </div>
+
+                    @* İsteğe Bağlı: Beni Hatırla *@
+                    <div class="mb-3 form-check">
+                        <InputCheckbox @bind-Value="loginModel.RememberMe" class="form-check-input" id="rememberMe" />
+                        <label class="form-check-label" for="rememberMe">Beni Hatırla</label>
+                    </div> 
+
+                    <div class="d-grid">
+                        <button type="submit" class="btn btn-primary" disabled="@isLoading">
+                            @if (isLoading)
+                            {
+                                <span class="spinner-border spinner-border-sm" role="status" aria-hidden="true"></span>
+                                <span> Giriş Yapılıyor...</span>
+                            }
+                            else
+                            {
+                                <span>Giriş Yap</span>
+                            }
+                        </button>
+                    </div>
+                </EditForm>
+            </div>
+            <div class="card-footer text-center">
+                <small>Hesabınız yok mu? <a href="/register">Kayıt Olun</a></small>
+                <br />
+                @* İsteğe Bağlı: Şifremi Unuttum *@
+                @* <small><a href="/forgot-password">Şifrenizi mi unuttunuz?</a></small> *@
+            </div>
+        </div>
+    </div>
+</div>
+
+@code {
+    private LoginModel loginModel = new LoginModel(); // Artık Models.LoginModel kullanılıyor
+    private string? errorMessage;
+    private bool isLoading = false;
+
+    private async Task HandleLogin()
+    {
+        isLoading = true;
+        errorMessage = null;
+
+        try
+        {
+            var result = await UserService.LoginUserAsync(
+                loginModel.UserNameOrEmail,
+                loginModel.Password,
+                loginModel.RememberMe
+            );
+
+            if (result.Succeeded)
+            {
+                // Başarılı giriş sonrası yönlendirme, yanıtı sonlandırır.
+                // Bu aşamada cookie'nin zaten yazılmış olması gerekir.
+                NavigationManager.NavigateTo("/", forceLoad: true); // forceLoad: true önemli olabilir
+            }
+            else
+            {
+                errorMessage = result.Errors.FirstOrDefault() ?? "Giriş başarısız.";
+            }
+        }
+        catch (Exception ex)
+        {
+            errorMessage = "Giriş sırasında bir hata oluştu.";
+            Console.WriteLine($"Login Exception: {ex}");
+        }
+        finally
+        {
+            isLoading = false;
+            StateHasChanged(); // <<< StateHasChanged'i buraya taşıyın
+        }
+    }
+}
