@@ -3,20 +3,17 @@ using System;
 using MemoriseApp.Data;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Infrastructure;
-using Microsoft.EntityFrameworkCore.Migrations;
 using Microsoft.EntityFrameworkCore.Storage.ValueConversion;
 using Npgsql.EntityFrameworkCore.PostgreSQL.Metadata;
 
 #nullable disable
 
-namespace MemoriseApp.Migrations
+namespace MemoriseApp.Data.Migrations
 {
     [DbContext(typeof(ApplicationDbContext))]
-    [Migration("20250531122230_InitialNoClaims")]
-    partial class InitialNoClaims
+    partial class ApplicationDbContextModelSnapshot : ModelSnapshot
     {
-        /// <inheritdoc />
-        protected override void BuildTargetModel(ModelBuilder modelBuilder)
+        protected override void BuildModel(ModelBuilder modelBuilder)
         {
 #pragma warning disable 612, 618
             modelBuilder
@@ -57,9 +54,10 @@ namespace MemoriseApp.Migrations
 
                     b.HasKey("UserWordProgressID");
 
-                    b.HasIndex("UserId");
-
                     b.HasIndex("WordID");
+
+                    b.HasIndex("UserId", "WordID")
+                        .IsUnique();
 
                     b.ToTable("UserWordProgresses");
                 });

@@ -39,7 +39,7 @@ namespace MemoriseApp.Models
         public WordLearningStatus Status { get; set; } = WordLearningStatus.New; // Öğrenme durumu
 
         // İlişkiler (Navigation Properties)
-       // [ForeignKey("UserId")]
+        [ForeignKey("UserId")]
         public virtual IdentityUser? User { get; set; }
 
         [ForeignKey("WordID")]

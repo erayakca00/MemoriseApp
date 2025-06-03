@@ -1,4 +1,3 @@
-using Microsoft.AspNetCore.Components.Server;
 using MemoriseApp.Components;
 using MemoriseApp.Data;
 using MemoriseApp.Services;
@@ -6,9 +5,7 @@ using Microsoft.AspNetCore.Identity;
 using Microsoft.AspNetCore.Identity.UI;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.AspNetCore.Diagnostics.EntityFrameworkCore;
-using Microsoft.AspNetCore.Components.Authorization;
-using Microsoft.Extensions.Logging;
-using MemoriseApp.Models;
+
 
 var builder = WebApplication.CreateBuilder(args);
 
@@ -31,17 +28,17 @@ builder.Services.AddServerSideBlazor();
 builder.Services.AddDbContext<ApplicationDbContext>(options =>
     options.UseNpgsql(connectionString));
 
-// ASP.NET Core Identity servislerini ekleyin
-builder.Services.AddDefaultIdentity<IdentityUser>(options => { /* ... */ })
-    .AddEntityFrameworkStores<ApplicationDbContext>();
-
-// Blazor'un kimlik doðrulama durumunu yönetmesi için
-builder.Services.AddCascadingAuthenticationState(); // Bu, AuthenticationStateProvider'ý kullanýlabilir hale getirir
-builder.Services.AddScoped<AuthenticationStateProvider,ServerAuthenticationStateProvider>();  //RevalidatingIdentityAuthenticationStateProvider EKLENECEK    
-
-// Özel Kullanýcý Servisini Kaydet
-builder.Services.AddScoped<IUserService, UserService>();
-builder.Services.AddScoped<SrsService>(); // SRS servisini ekle
+// ASP.NET Identity için gerekli servislerin eklenmesi.1
+builder.Services.AddDefaultIdentity<IdentityUser>(options => {
+    // Þifre, kullanýcý adý, lockout vb. ayarlarý burada yapabilirsiniz
+    options.SignIn.RequireConfirmedAccount = false; // E-posta onayý þimdilik kapalý
+    options.Password.RequireDigit = false; // Örnek: Rakam zorunluluðunu kaldýr
+    options.Password.RequiredLength = 6;
+    options.Password.RequireNonAlphanumeric = false;
+    options.Password.RequireUppercase = false;
+    options.Password.RequireLowercase = false;
+})
+.AddEntityFrameworkStores<ApplicationDbContext>(); // Veritabaný baðlantýsý
 
 builder.Services.Configure<Microsoft.AspNetCore.HttpsPolicy.HttpsRedirectionOptions>(options =>
 {
@@ -49,7 +46,9 @@ builder.Services.Configure<Microsoft.AspNetCore.HttpsPolicy.HttpsRedirectionOpti
     options.HttpsPort = 7105;
 });
 
-
+// Özel Kullanýcý Servisini Kaydet
+builder.Services.AddScoped<IUserService, UserService>(); 
+builder.Services.AddScoped<SrsService>(); // SRS servisini ekle
 
 var app = builder.Build();
 

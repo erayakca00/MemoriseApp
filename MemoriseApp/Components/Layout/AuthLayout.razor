@@ -1,14 +1,13 @@
 ﻿@inherits LayoutComponentBase
-@* İsteğe bağlı: Temel CSS dosyalarınızı buraya ekleyebilirsiniz *@
-@* <link href="css/bootstrap/bootstrap.min.css" rel="stylesheet" /> *@
-@* <link href="css/app.css" rel="stylesheet" /> *@
 
-<div class="container-fluid">
-    <main role="main" class="pb-3">
-        @* Sayfa içeriği buraya gelecek *@
-        @Body
-    </main>
+@* Bu layout'u kullanan sayfaların içeriği buraya gelecek *@
+<div class="container">
+    @* Veya başka bir sarmalayıcı div *@
+    <div class="row justify-content-center align-items-center min-vh-100">
+        @* İçeriği ortalamak için Bootstrap *@
+        <div class="col-md-6 col-lg-4">
+            @* İçerik genişliğini ayarla *@
+            @Body
+        </div>
+    </div>
 </div>
-
-@* İsteğe bağlı: Temel JS dosyalarınızı buraya ekleyebilirsiniz *@
-@* <script src="_framework/blazor.web.js"></script> *@

@@ -1,139 +1,148 @@
 ﻿@page "/register"
-@layout AuthLayout // Eğer varsa
-@using MemoriseApp.Services
-@using MemoriseApp.Models 
+@layout AuthLayout
+@rendermode InteractiveServer 
 @using System.ComponentModel.DataAnnotations
-@rendermode InteractiveServer
-@inject IUserService UserService
+@using Microsoft.AspNetCore.Identity
+@using MemoriseApp.Models 
 @inject NavigationManager NavigationManager
+@inject UserManager<IdentityUser> UserManager 
+@inject IUserStore<IdentityUser> UserStore 
+@* @inject IEmailSender<IdentityUser> EmailSender // E-posta onayı için ileride gerekebilir *@
 
 <PageTitle>Kayıt Ol</PageTitle>
 
-<div class="row justify-content-center mt-5">
-    <div class="col-md-6 col-lg-4">
-        <div class="card shadow">
-            <div class="card-header bg-success text-white text-center">
-                <h4>Yeni Hesap Oluştur</h4>
-            </div>
-            <div class="card-body">
-                <EditForm Model="@registerModel" OnValidSubmit="HandleRegistration" FormName="RegisterUserForm">
-                    <DataAnnotationsValidator />
-                    @* <ValidationSummary /> *@ @* Hataları toplu göstermek isterseniz *@
+<div class="container mt-4" style="max-width: 500px;">
+    @* Konteyneri biraz daraltalım *@
+    <div class="card shadow-sm">
+        <div class="card-body">
+            <h2 class="card-title text-center mb-4">
+                <i class="bi bi-person-plus-fill me-2"></i>Kullanıcı Kaydı
+            </h2>
 
-                    @if (registrationErrors.Any())
-                    {
-                        <div class="alert alert-danger" role="alert">
-                            <p>Kayıt sırasında aşağıdaki hatalar oluştu:</p>
-                            <ul>
-                                @foreach (var error in registrationErrors)
-                                {
-                                    <li>@error</li>
-                                }
-                            </ul>
-                        </div>
-                    }
-                    @if (!string.IsNullOrEmpty(successMessage))
-                    {
-                        <div class="alert alert-success" role="alert">
-                            @successMessage
-                        </div>
-                    }
+            @if (showMessage)
+            {
+                <div class="alert @(messageType == "success" ? "alert-success" : "alert-danger")" role="alert">
+                    <i class="bi @(messageType == "success" ? "bi-check-circle-fill" : "bi-exclamation-triangle-fill") me-2"></i>
+                    @message
+                </div>
+            }
 
-                    <div class="mb-3">
-                        <label for="username" class="form-label">Kullanıcı Adı</label>
-                        <InputText @bind-Value="registerModel.Username" class="form-control" id="username" placeholder="Kullanıcı adınızı seçin" />
-                        <ValidationMessage For="@(() => registerModel.Username)" />
-                    </div>
+            <EditForm Model="@model" OnValidSubmit="@HandleValidSubmit" FormName="RegisterForm" novalidate>
+                @* Tarayıcı validasyonunu devre dışı bırak *@
+                <DataAnnotationsValidator />
+                @* <ValidationSummary class="mb-3" /> *@ @* Tüm hataları göstermek için *@
 
-                    <div class="mb-3">
-                        <label for="email" class="form-label">Email</label>
-                        <InputText @bind-Value="registerModel.Email" type="email" class="form-control" id="email" placeholder="E-posta adresiniz" />
-                        <ValidationMessage For="@(() => registerModel.Email)" />
-                    </div>
+                <div class="mb-3">
+                    <label for="username" class="form-label">@nameof(model.Username)</label>
+                    <InputText id="username" class="form-control" @bind-Value="model.Username" disabled="@isSubmitting" />
+                    <ValidationMessage For="@(() => model.Username)" />
+                </div>
 
-                    <div class="mb-3">
-                        <label for="password" class="form-label">Şifre</label>
-                        <InputText @bind-Value="registerModel.Password" type="password" class="form-control" id="password" placeholder="Güçlü bir şifre seçin" />
-                        <ValidationMessage For="@(() => registerModel.Password)" />
-                    </div>
+                <div class="mb-3">
+                    <label for="email" class="form-label">@nameof(model.Email)</label>
+                    <InputText type="email" id="email" class="form-control" @bind-Value="model.Email" disabled="@isSubmitting" />
+                    <ValidationMessage For="@(() => model.Email)" />
+                </div>
 
-                    <div class="mb-3">
-                        <label for="confirmPassword" class="form-label">Şifre Doğrulama</label>
-                        <InputText @bind-Value="registerModel.ConfirmPassword" type="password" class="form-control" id="confirmPassword" placeholder="Şifrenizi tekrar girin" />
-                        <ValidationMessage For="@(() => registerModel.ConfirmPassword)" />
-                    </div>
+                <div class="mb-3">
+                    <label for="password" class="form-label">@nameof(model.Password)</label>
+                    <InputText type="password" id="password" class="form-control" @bind-Value="model.Password" disabled="@isSubmitting" />
+                    <ValidationMessage For="@(() => model.Password)" />
+                </div>
 
-                    <div class="d-grid">
-                        <button type="submit" class="btn btn-success" disabled="@isLoading">
-                            @if (isLoading)
-                            {
-                                <span class="spinner-border spinner-border-sm" role="status" aria-hidden="true"></span>
-                                <span> Kayıt Olunuyor...</span>
-                            }
-                            else
-                            {
-                                <span>Kayıt Ol</span>
-                            }
-                        </button>
-                    </div>
-                </EditForm>
-            </div>
-            <div class="card-footer text-center">
-                <small>Zaten bir hesabınız var mı? <a href="/login">Giriş Yapın</a></small>
+                <div class="mb-3">
+                    <label for="confirmPassword" class="form-label">@nameof(model.ConfirmPassword)</label>
+                    <InputText type="password" id="confirmPassword" class="form-control" @bind-Value="model.ConfirmPassword" disabled="@isSubmitting" />
+                    <ValidationMessage For="@(() => model.ConfirmPassword)" />
+                </div>
+
+                <div class="d-grid gap-2">
+                    @* Butonu tam genişlik yap *@
+                    <button type="submit" class="btn btn-primary btn-lg" disabled="@isSubmitting">
+                        @if (isSubmitting)
+                        {
+                            <span class="spinner-border spinner-border-sm me-1" role="status" aria-hidden="true"></span>
+                            <span>Kaydediliyor...</span>
+                        }
+                        else
+                        {
+                            <i class="bi bi-person-plus-fill me-1"></i>
+                            <span>Kayıt Ol</span>
+                        }
+                    </button>
+                </div>
+            </EditForm>
+
+            <hr class="my-4"> @* Ayırıcı çizgi *@
+
+            <div class="text-center">
+                <p class="mb-0">Zaten hesabınız var mı?</p>
+                <a href="@loginPath" class="link-secondary">Giriş Yap</a> @* Identity varsayılan login yolu *@
             </div>
         </div>
     </div>
 </div>
 
 @code {
-    private readonly RegisterModel registerModel = new RegisterModel();
-    private readonly List<string> registrationErrors = new List<string>();
-    private string? successMessage;
-    private bool isLoading = false;
+    private readonly RegisterModel model = new();
+    private bool isSubmitting = false;
+    private bool showMessage = false;
+    private string message = "";
+    private string messageType = ""; // "success" veya "danger" (Bootstrap alert sınıfları için)
 
-    private async Task HandleRegistration()
+    // Identity'nin varsayılan login yolu (değişebilir)
+    private readonly string loginPath = "/Account/Login";
+
+    private async Task HandleValidSubmit()
     {
-        isLoading = true;
-        registrationErrors.Clear();
-        successMessage = null;
+        isSubmitting = true;
+        showMessage = false;
+        message = "";
+        messageType = "";
         StateHasChanged();
+
+        // IdentityUser nesnesi oluştur
+        var user = new IdentityUser { UserName = model.Username, Email = model.Email };
+        user.EmailConfirmed = true; // Şimdilik e-posta onayı gerektirmeyelim
 
         try
         {
-            // UserService'teki RegisterUserAsync metodunu çağır
-            var result = await UserService.RegisterUserAsync(
-                registerModel.Username,
-                registerModel.Email,
-                registerModel.Password
-            );
+            // Kullanıcıyı oluşturmayı dene (UserManager şifreyi hash'ler,
+            // kullanıcı adı ve email'i de UserStore aracılığıyla ayarlar)
+            var result = await UserManager.CreateAsync(user, model.Password);
 
             if (result.Succeeded)
             {
-                successMessage = "Kayıt başarılı! Artık giriş yapabilirsiniz.";
-                Console.WriteLine("Kayıt başarılı!");
-                // İsteğe bağlı: Kullanıcıyı giriş sayfasına yönlendir veya otomatik giriş yaptır.
-                // Şimdilik sadece mesaj gösterelim.
-                NavigationManager.NavigateTo("/login");
+                // Başarılı kayıt
+                messageType = "success";
+                message = "Kayıt işlemi başarılı! Giriş sayfasına yönlendiriliyorsunuz...";
+                showMessage = true;
+                StateHasChanged();
+
+                await Task.Delay(2000);
+                NavigationManager.NavigateTo(loginPath);
             }
             else
             {
-                registrationErrors.AddRange(result.Errors);
-                Console.WriteLine("Kayıt başarısız:");
-                foreach (var error in result.Errors)
-                {
-                    Console.WriteLine($"- {error}");
-                }
+                // Hataları göster
+                messageType = "danger";
+                message = string.Join(" ", result.Errors.Select(e => e.Description));
+                showMessage = true;
             }
         }
-        catch (Exception ex)
+        catch (Exception ex) // Beklenmedik hatalar
         {
-            registrationErrors.Add("Kayıt sırasında beklenmedik bir hata oluştu. Lütfen tekrar deneyin.");
-            Console.WriteLine($"Kayıt Exception: {ex.ToString()}");
+            messageType = "danger";
+            message = "Kayıt sırasında beklenmedik bir sunucu hatası oluştu. Lütfen tekrar deneyin.";
+            showMessage = true;
+            Console.WriteLine($"Registration Error: {ex}"); // Hata loglama
         }
         finally
         {
-            isLoading = false;
+            isSubmitting = false;
             StateHasChanged();
         }
     }
+
+
 }
