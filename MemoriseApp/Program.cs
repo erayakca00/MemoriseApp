@@ -17,16 +17,16 @@ var connectionString =
     builder.Configuration.GetConnectionString("DefaultConnection") ?? throw new
     InvalidOperationException("Connection string 'DefaultConnection' not found.");
 
-// Veritabaný oluþturulmasý sýrasýnda oluþan sorunlarý daha detaylý gösteren servis.
+// Veritabanï¿½ oluï¿½turulmasï¿½ sï¿½rasï¿½nda oluï¿½an sorunlarï¿½ daha detaylï¿½ gï¿½steren servis.
 builder.Services.AddDatabaseDeveloperPageExceptionFilter();
 
 builder.Services.AddRazorComponents()
     .AddInteractiveServerComponents(options =>
     {
-        options.DetailedErrors = true; // Hata ayýklama için detaylý hata mesajlarý gösterir.
+        options.DetailedErrors = true; // Hata ayï¿½klama iï¿½in detaylï¿½ hata mesajlarï¿½ gï¿½sterir.
     });
 builder.Services.AddRazorPages();
-builder.Services.AddServerSideBlazor();
+//builder.Services.AddServerSideBlazor();
 
 builder.Services.AddDbContext<ApplicationDbContext>(options =>
     options.UseNpgsql(connectionString));
@@ -35,17 +35,17 @@ builder.Services.AddDbContext<ApplicationDbContext>(options =>
 builder.Services.AddDefaultIdentity<IdentityUser>(options => { /* ... */ })
     .AddEntityFrameworkStores<ApplicationDbContext>();
 
-// Blazor'un kimlik doðrulama durumunu yönetmesi için
-builder.Services.AddCascadingAuthenticationState(); // Bu, AuthenticationStateProvider'ý kullanýlabilir hale getirir
-builder.Services.AddScoped<AuthenticationStateProvider,ServerAuthenticationStateProvider>();  //RevalidatingIdentityAuthenticationStateProvider EKLENECEK    
+// Blazor'un kimlik doï¿½rulama durumunu yï¿½netmesi iï¿½in
+//builder.Services.AddCascadingAuthenticationState(); // Bu, AuthenticationStateProvider'ï¿½ kullanï¿½labilir hale getirir
+//builder.Services.AddScoped<AuthenticationStateProvider,ServerAuthenticationStateProvider>();  //RevalidatingIdentityAuthenticationStateProvider EKLENECEK    
 
-// Özel Kullanýcý Servisini Kaydet
+// ï¿½zel Kullanï¿½cï¿½ Servisini Kaydet
 builder.Services.AddScoped<IUserService, UserService>();
 builder.Services.AddScoped<SrsService>(); // SRS servisini ekle
 
 builder.Services.Configure<Microsoft.AspNetCore.HttpsPolicy.HttpsRedirectionOptions>(options =>
 {
-    // launchSettings.json'daki HTTPS portunu buraya yazýn
+    // launchSettings.json'daki HTTPS portunu buraya yazï¿½n
     options.HttpsPort = 7105;
 });
 
@@ -53,7 +53,8 @@ builder.Services.Configure<Microsoft.AspNetCore.HttpsPolicy.HttpsRedirectionOpti
 
 var app = builder.Build();
 
-app.UseHttpsRedirection();
+app.UseHttpsRedirection(); // Genellikle en baï¿½larda
+app.UseStaticFiles();    // Statik dosyalar iï¿½in
 
 // Configure the HTTP request pipeline.
 if (!app.Environment.IsDevelopment())
@@ -63,16 +64,18 @@ if (!app.Environment.IsDevelopment())
     app.UseHsts();
 }
 
-app.UseRouting();
+app.UseRouting();        // Yï¿½nlendirme iï¿½in endpoint'leri bulmadan ï¿½nce
 
-app.UseAuthentication();
-app.UseAuthorization();
+app.UseAuthentication(); // Kim olduï¿½unu belirle
+app.UseAuthorization();  // Ne yapabileceï¿½ini belirle
 
-app.UseStaticFiles();
-app.UseAntiforgery();
+app.UseAntiforgery();    // Antiforgery token'larï¿½ iï¿½in
 
-app.MapRazorPages();
+// Endpoint'leri map etme
+app.MapRazorPages();     // Razor Pages iï¿½in
 app.MapRazorComponents<App>()
-    .AddInteractiveServerRenderMode();
+    .AddInteractiveServerRenderMode(); // Blazor Components iï¿½in
+
+app.MapGet("/hello", () => "Merhaba Dï¿½nya!"); // Basit bir test endpoint'i
 
 await app.RunAsync();

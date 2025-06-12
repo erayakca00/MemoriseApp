@@ -42,8 +42,8 @@
                     </div>
                 </Authorized>
                 <NotAuthorized>
-                    <a href="login" class="btn btn-link text-decoration-none">Giriş Yap</a>
-                    <a href="register" class="btn btn-primary ms-2">Kayıt Ol</a>
+                    <a href="/Identity/Account/Login" class="btn btn-link text-decoration-none">Giriş Yap</a>
+                    <button class="btn btn-link text-decoration-none" @onclick="GoToRegister">Kayıt Ol</button>
                 </NotAuthorized>
             </AuthorizeView>
         </div>
@@ -62,11 +62,26 @@
 
 
 @code {
-    private async Task HandleLogout() // Metot adını HandleLogout olarak değiştirdim ve async yaptım
+    // private async Task HandleLogout() // Metot adını HandleLogout olarak değiştirdim ve async yaptım
+    // {
+    //     await UserService.LogoutUserAsync();
+    //     // Çıkış yaptıktan sonra kullanıcıyı ana sayfaya veya giriş sayfasına yönlendir.
+    //     // forceLoad: true, Blazor devresinin ve kimlik doğrulama durumunun tamamen yenilenmesini sağlar.
+    //     NavigationManager.NavigateTo("/", forceLoad: true);
+    // }
+
+    private void GoToLogin()
     {
-        await UserService.LogoutUserAsync();
-        // Çıkış yaptıktan sonra kullanıcıyı ana sayfaya veya giriş sayfasına yönlendir.
-        // forceLoad: true, Blazor devresinin ve kimlik doğrulama durumunun tamamen yenilenmesini sağlar.
-        NavigationManager.NavigateTo("/", forceLoad: true);
+        NavigationManager.NavigateTo("Identity/Account/Login", true); // hard reload
+    }
+
+    private void GoToRegister()
+    {
+        NavigationManager.NavigateTo("Identity/Account/Register", true); // hard reload
+    }
+
+    private void HandleLogout()
+    {
+        NavigationManager.NavigateTo("Identity/Account/Logout", true);
     }
 }

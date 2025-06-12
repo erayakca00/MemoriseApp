@@ -1,0 +1,85 @@
+﻿@page "/Account/Login"
+@model MemoriseApp.Components.Pages.Account.LoginModel
+@{
+    ViewData["Title"] = "Giriş Yap";
+    Layout = "_AuthPageLayout"; // AuthPageLayout'ı kullanıyoruz
+}
+
+<div class="login-container">
+    <div class="login-card">
+        <h2 class="login-title">
+            <span class="icon">
+                <i class="bi bi-box-arrow-in-right"></i>
+            </span>
+            <span>Giriş Yap</span>
+        </h2>
+
+        @if (!string.IsNullOrEmpty(Model.ErrorMessage))
+        {
+            <div class="alert alert-danger" role="alert">@Model.ErrorMessage</div>
+        }
+        <div asp-validation-summary="ModelOnly" class="text-danger mb-3" role="alert"></div>
+
+        <form id="account" method="post" asp-route-returnUrl="@Model.ReturnUrl">
+            <div class="form-field mb-3">
+                <label asp-for="Input.UserNameOrEmail" class="form-label"></label>
+                <div class="input-container">
+                    <input asp-for="Input.UserNameOrEmail" class="form-control" autocomplete="username" aria-required="true" placeholder="Kullanıcı adı veya e-posta" />
+                </div>
+                <div class="validation-message">
+                    <span asp-validation-for="Input.UserNameOrEmail" class="text-danger"></span>
+                </div>
+            </div>
+
+            <div class="form-field mb-3">
+                <label asp-for="Input.Password" class="form-label"></label>
+                <div class="input-container">
+                    <input asp-for="Input.Password" class="form-control" type="password" autocomplete="current-password" aria-required="true" placeholder="Şifre" />
+                </div>
+                <div class="validation-message">
+                    <span asp-validation-for="Input.Password" class="text-danger"></span>
+                </div>
+            </div>
+
+            <div class="remember-me mb-3">
+                <div class="form-check">
+                    <input asp-for="Input.RememberMe" type="checkbox" class="form-check-input" />
+                    <label asp-for="Input.RememberMe" class="form-check-label">
+                        @Html.DisplayNameFor(m => m.Input.RememberMe)
+                    </label>
+                </div>
+            </div>
+
+            <button type="submit" class="submit-button w-100 btn btn-lg btn-primary" id="loginButton" disabled="@Model.IsLoginButtonDisabled">
+                @if (Model.IsLoginButtonDisabled && Model.ModelState.IsValid) // VEYA && Model.ModelState.ErrorCount == 0
+                {
+                    <span class="spinner-border spinner-border-sm" role="status" aria-hidden="true"></span>
+                    <span>Giriş Yapılıyor...</span>
+                }
+                else
+                {
+                    <span>Giriş Yap</span>
+                    <i class="bi bi-box-arrow-in-right"></i>
+                }
+            </button>
+        </form>
+
+        <div class="register-link-container mt-3">
+            <p>Hesabınız yok mu?</p>
+            <a asp-page="/Account/Register" asp-route-returnUrl="@Model.ReturnUrl" class="register-link">
+                <span>Kayıt Ol</span>
+                <i class="bi bi-person-plus-fill"></i>
+            </a>
+        </div>
+    </div>
+</div>
+
+@section Scripts {
+    <partial name="_ValidationScriptsPartial" />
+@* Artık jQuery'ye gerek yok *@
+}
+
+@section Styles {
+      <link rel="stylesheet" href="/login.css"/>                                         
+@* Artık jQuery'ye gerek yok *@
+}
